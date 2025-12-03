@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node dist/mcp-server/main.js",
+    "build": "npm install && npx nx build mcp-server",
+    "vercel-build": "npm install && npx nx build mcp-server --prod"
   },
   "keywords": [],
   "author": "",

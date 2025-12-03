@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ],
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "dist/mcp-server/main.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  }
+}
