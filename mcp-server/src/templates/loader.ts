@@ -22,9 +22,63 @@ function getCurrentDir(): string {
  * 获取模板目录的绝对路径
  * 在开发环境中，从当前文件位置查找
  * 在打包后，从 dist/mcp-server 目录查找
+ * 在 Vercel 环境中，从项目根目录查找
  */
 function getTemplatesDir(): string {
   const currentDir = getCurrentDir();
+  
+  // Vercel 环境检测：/var/task 是 Vercel serverless function 的工作目录
+  const isVercel = currentDir.includes('/var/task') || process.env.VERCEL === '1';
+  
+  if (isVercel) {
+    // Vercel 环境：使用 process.cwd() 作为项目根目录（更可靠）
+    const projectRoot = process.cwd();
+    
+    // 优先查找 dist/mcp-server/templates（如果运行了构建）
+    const distTemplatesPath = path.join(projectRoot, 'dist', 'mcp-server', 'templates');
+    if (fs.existsSync(distTemplatesPath)) {
+      return distTemplatesPath;
+    }
+    
+    // 查找 mcp-server/src/templates（源代码）
+    const srcTemplatesPath = path.join(projectRoot, 'mcp-server', 'src', 'templates');
+    if (fs.existsSync(srcTemplatesPath)) {
+      return srcTemplatesPath;
+    }
+    
+    // 也尝试从 currentDir（可能是 /var/task）查找
+    const distTemplatesPath2 = path.join(currentDir, 'dist', 'mcp-server', 'templates');
+    if (fs.existsSync(distTemplatesPath2)) {
+      return distTemplatesPath2;
+    }
+    
+    const srcTemplatesPath2 = path.join(currentDir, 'mcp-server', 'src', 'templates');
+    if (fs.existsSync(srcTemplatesPath2)) {
+      return srcTemplatesPath2;
+    }
+    
+    // 尝试从当前目录向上查找项目根目录
+    let searchDir = currentDir;
+    const maxDepth = 10;
+    let depth = 0;
+    
+    while (searchDir !== path.dirname(searchDir) && depth < maxDepth) {
+      // 尝试查找 dist/mcp-server/templates
+      const distPath = path.join(searchDir, 'dist', 'mcp-server', 'templates');
+      if (fs.existsSync(distPath)) {
+        return distPath;
+      }
+      
+      // 尝试查找 mcp-server/src/templates
+      const srcPath = path.join(searchDir, 'mcp-server', 'src', 'templates');
+      if (fs.existsSync(srcPath)) {
+        return srcPath;
+      }
+      
+      searchDir = path.dirname(searchDir);
+      depth++;
+    }
+  }
   
   // 打包后：main.js 在 dist/mcp-server/main.js
   // __dirname 会指向 dist/mcp-server
@@ -71,6 +125,12 @@ function getTemplatesDir(): string {
       return distTemplatesPath;
     }
     
+    // 尝试在 mcp-server/src/templates 下查找（从项目根目录）
+    const mcpSrcTemplatesPath = path.join(searchDir, 'mcp-server', 'src', 'templates');
+    if (fs.existsSync(mcpSrcTemplatesPath)) {
+      return mcpSrcTemplatesPath;
+    }
+    
     searchDir = path.dirname(searchDir);
     depth++;
   }
@@ -88,8 +148,23 @@ export function loadTemplate(templateName: string): string {
   const templatesDir = getTemplatesDir();
   const templateDir = path.join(templatesDir, templateName);
   
+  // 调试信息：在开发环境或 Vercel 环境中输出路径信息
+  if (process.env.NODE_ENV !== 'production' || process.env.VERCEL === '1') {
+    console.log(`[Template Loader] Current dir: ${getCurrentDir()}`);
+    console.log(`[Template Loader] Templates dir: ${templatesDir}`);
+    console.log(`[Template Loader] Template dir: ${templateDir}`);
+    console.log(`[Template Loader] Template exists: ${fs.existsSync(templateDir)}`);
+  }
+  
   if (!fs.existsSync(templateDir)) {
-    throw new Error(`Template directory not found: ${templateDir}`);
+    // 提供更详细的错误信息，包括尝试过的路径
+    const errorMsg = `Template directory not found: ${templateDir}\n` +
+      `Current directory: ${getCurrentDir()}\n` +
+      `Templates directory: ${templatesDir}\n` +
+      `Template name: ${templateName}\n` +
+      `Vercel environment: ${process.env.VERCEL || 'false'}\n` +
+      `Working directory: ${process.cwd()}`;
+    throw new Error(errorMsg);
   }
   
   // 读取 HTML 文件
