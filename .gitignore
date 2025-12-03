@@ -1,0 +1,20 @@
+# IDE files
+.idea
+.vscode
+
+# Node dependencies
+node_modules
+
+# Nx cache
+.nx
+
+# Build output
+dist
+
+# Temp files
+tmp
+
+# Database files
+db
+
+certs
