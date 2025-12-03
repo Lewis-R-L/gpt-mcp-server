@@ -2,6 +2,7 @@
 
 This workspace is initialized with Nx and contains a Node-based MCP server app `mcp-server`.
 
+
 ### Prerequisites
 
 - Node.js 18+
