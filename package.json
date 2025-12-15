@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/mcp-server/main.js",
     "build": "npm install && npx nx build mcp-server",
-    "vercel-build": "rm -rf dist .nx && npm install && npx nx build mcp-server --prod --skip-nx-cache"
+    "vercel-build": "rm -rf dist .nx && npm install && npx nx build mcp-server --prod --skip-nx-cache",
+    "preview": "node scripts/generate-preview.js"
   },
   "keywords": [],
   "author": "",

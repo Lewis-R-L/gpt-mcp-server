@@ -25,6 +25,11 @@
             "glob": "**/*",
             "input": "mcp-server/src/templates",
             "output": "templates"
+          },
+          {
+            "glob": "**/*",
+            "input": "public/icons",
+            "output": "public/icons"
           }
         ],
         "generatePackageJson": true,

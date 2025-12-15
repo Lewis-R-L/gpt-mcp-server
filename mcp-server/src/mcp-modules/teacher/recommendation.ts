@@ -60,6 +60,7 @@ const RECOMMENDED_TEACHER_INFO_SCHEMA = z.object({
     studentCount: z.number().describe('The student count of the teacher on italki platform'),
     taughtLessonCount: z.number().describe('The taught lesson count of the teacher on italki platform'),
     minUSDPriceInCents: z.number().describe('The minimum USD price of the teacher on italki platform in cents'),
+    rating: z.number().optional().describe('The overall rating of the teacher (e.g., 5.0)'),
 });
 
 type RecommendedTeacherInfo = z.infer<typeof RECOMMENDED_TEACHER_INFO_SCHEMA>;
@@ -69,6 +70,7 @@ const TEACHER_RECOMMENDATION_OUTPUT_SCHEMA: ZodRawShape = {
 };
 
 function convertRecommendedTeacher(teacherRecommendation: ItalkiAPIV2TeacherRecommendV4): RecommendedTeacherInfo {
+    const overallRating = parseFloat(teacherRecommendation.teacher_info.overall_rating || '0');
     return {
         id: teacherRecommendation.user_info.user_id.toString(),
         profileUrl: `https://www.italki.com/teacher/${teacherRecommendation.user_info.user_id}`,
@@ -90,6 +92,7 @@ function convertRecommendedTeacher(teacherRecommendation: ItalkiAPIV2TeacherReco
         studentCount: teacherRecommendation.teacher_info.student_count,
         taughtLessonCount: teacherRecommendation.teacher_info.session_count,
         minUSDPriceInCents: teacherRecommendation.course_info.min_price,
+        rating: isNaN(overallRating) ? undefined : overallRating,
     };
 }
 
@@ -164,19 +167,18 @@ async function urlToBase64(url: string): Promise<string> {
 }
 
 /**
- * 将推荐教师列表中的图片和视频 URL 转换为 base64
+ * 将推荐教师列表中的头像 URL 转换为 base64
+ * 注意：只转换头像图片（avatarUrl），不转换视频缩略图（videoThumbnailUrl）和视频（videoUrl）
  */
 async function convertTeachersUrlsToBase64(teachers: RecommendedTeacherInfo[]): Promise<RecommendedTeacherInfo[]> {
     const convertedTeachers = await Promise.all(
         teachers.map(async (teacher) => {
-            const [avatarBase64, videoThumbnailBase64] = await Promise.all([
-                urlToBase64(teacher.avatarUrl),
-                urlToBase64(teacher.videoThumbnailUrl)
-            ]);
+            // 只转换头像 URL，不转换视频缩略图和视频 URL
+            const avatarBase64 = await urlToBase64(teacher.avatarUrl);
             return {
                 ...teacher,
-                avatarUrl: avatarBase64,
-                videoThumbnailUrl: videoThumbnailBase64
+                avatarUrl: avatarBase64
+                // videoThumbnailUrl 和 videoUrl 保持不变，不转换为 base64
             };
         })
     );
@@ -211,7 +213,8 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
         // Get teacher recommendation
         const recommendedTeachers = await getRecommendedTeachers(validatedArgs.data.language);
         
-        // Convert image and video URLs to base64 for structuredContent
+        // Convert avatar URL to base64 for structuredContent
+        // Note: videoThumbnailUrl and videoUrl are NOT converted to base64, they remain as original URLs
         const recommendedTeachersWithBase64 = await convertTeachersUrlsToBase64(recommendedTeachers);
         
         // Use original URLs for text rendering (to keep text readable)

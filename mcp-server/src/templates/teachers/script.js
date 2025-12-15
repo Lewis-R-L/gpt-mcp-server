@@ -3,128 +3,243 @@
 //   toolOutput 包含来自 recommendation.ts 的 structuredContent
 // ------------------------------
 // 从 window.openai?.toolOutput 初始化数据
-let teachers = [...(window.openai?.toolOutput?.teachers ?? [])];
+
+let teachers = [...(window.openai?.toolOutput?.teachers ?? [])].slice(0, 4);
+let totalTeachersCount = window.openai?.toolOutput?.totalCount || null;
+
+// -------------- 图标路径配置 --------------
+// 在生产环境中，这应该指向实际的图标路径（例如 /public/icons 或 /icons）
+// 在预览文件中，图标会被内联为 data URI
+const ICONS_BASE_PATH = window.ICONS_BASE_PATH || '/public/icons';
 
 // -------------- 工具映射 --------------
-const countryFlagMap = { KR: "🇰🇷" };
+// 国家代码到图标文件名的映射（特殊映射）
+// 对于不在映射表中的国家，直接使用小写国家代码作为文件名
+const countryFlagMap = {
+  UK: "gb",  // 英国使用 GB 的国旗
+  GB: "gb",
+  // 其他所有 ISO 国家代码会自动映射为小写形式，例如：
+  // US -> us, CA -> ca, KR -> kr, ES -> es, FR -> fr 等
+};
+
 const languageNameMap = {
-  korean: "韩语",
-  english: "英语",
-  spanish: "西班牙语",
-  chinese: "中文",
-  japanese: "日语",
-  german: "德语",
-  swedish: "瑞典语",
-  other: "其他"
+  korean: "Korean",
+  english: "English",
+  spanish: "Spanish",
+  chinese: "Chinese",
+  japanese: "Japanese",
+  german: "German",
+  swedish: "Swedish",
+  french: "French",
+  italian: "Italian",
+  portuguese: "Portuguese",
+  russian: "Russian",
+  arabic: "Arabic",
+  other: "Other"
 };
 
 function centsToUSDString(cents) {
-  return (cents / 100).toFixed(2);
+  return (cents / 100).toFixed(0);
 }
 
 function buildTeachLanguageLabel(teacher) {
   const lang = teacher.teachLanguages?.[0];
-  if (!lang) return "";
-  const name = languageNameMap[lang.language] || lang.language;
-  return `${name} ${lang.level === "native" ? "母语" : lang.level}`;
+  if (!lang) return { name: "", level: "" };
+  const name = languageNameMap[lang.language.toLowerCase()] || lang.language;
+  const level = lang.level === "native" || lang.level === "L7" ? "Native" : lang.level;
+  return { name, level };
+}
+
+function getCountryFlag(countryId) {
+  // 尝试从可能的格式中提取（如 "US_123" -> "US"）
+  const code = countryId.split('_')[0].toUpperCase();
+  
+  // 首先检查是否有特殊映射
+  let flagFileName = countryFlagMap[code];
+  
+  // 如果没有特殊映射，直接使用小写国家代码作为文件名
+  if (!flagFileName) {
+    flagFileName = code.toLowerCase();
+  }
+  
+  // 如果 window.ICON_DATA_URI 存在（预览模式），使用内联的 SVG data URI
+  if (window.ICON_DATA_URI && window.ICON_DATA_URI[`flags/${flagFileName}.svg`]) {
+    return window.ICON_DATA_URI[`flags/${flagFileName}.svg`];
+  }
+  
+  // 否则返回相对路径
+  return `${ICONS_BASE_PATH}/flags/${flagFileName}.svg`;
+}
+
+function createFlagBadge(countryId) {
+  const flagUrl = getCountryFlag(countryId);
+  
+  if (!flagUrl) {
+    // 如果没有找到对应的国旗，返回一个默认的占位符
+    const placeholder = document.createElement("div");
+    placeholder.style.width = "100%";
+    placeholder.style.height = "100%";
+    placeholder.style.background = "#ddd";
+    placeholder.style.borderRadius = "50%";
+    return placeholder;
+  }
+  
+  const img = document.createElement("img");
+  img.src = flagUrl;
+  img.alt = countryId;
+  // 样式由 CSS 中的 .flag-badge img 控制，不需要内联样式
+  return img;
+}
+
+// 创建星星图标
+function createStarIcon() {
+  // 如果 window.ICON_DATA_URI 存在（预览模式），使用内联的 SVG
+  let starUrl;
+  if (window.ICON_DATA_URI && window.ICON_DATA_URI['star.svg']) {
+    starUrl = window.ICON_DATA_URI['star.svg'];
+  } else {
+    starUrl = `${ICONS_BASE_PATH}/star.svg`;
+  }
+  
+  const img = document.createElement("img");
+  img.src = starUrl;
+  img.alt = "star";
+  img.style.width = "16px";
+  img.style.height = "16px";
+  img.style.display = "block";
+  return img;
 }
 
 // ------------------------------
-//   创建教师卡片（直接使用 Base64 图片，已在 server 层转换）
+//   创建教师卡片
 // ------------------------------
 function createTeacherCard(teacher) {
-  // avatarUrl 和 videoThumbnailUrl 已经在 server 层转换为 base64
-  // 直接使用即可，无需再次转换
-
   const card = document.createElement("article");
   card.className = "teacher-card";
 
-  // 顶部视频缩略图
-  const videoWrapper = document.createElement("div");
-  videoWrapper.className = "video-wrapper";
+  const cardInner = document.createElement("div");
+  cardInner.className = "teacher-card-inner";
 
-  const img = document.createElement("img");
-  img.src = teacher.videoThumbnailUrl;     // 已经是 base64 格式
-  img.alt = "video thumbnail";
-  videoWrapper.appendChild(img);
+  // ---- 用户卡片容器 ----
+  const userCard = document.createElement("div");
+  userCard.className = "user-card";
 
-  const play = document.createElement("button");
-  play.className = "play-btn";
-  play.onclick = () => window.open(teacher.videoUrl, "_blank");
-  videoWrapper.appendChild(play);
+  // ---- 头像区域 ----
+  const avatarSection = document.createElement("div");
+  avatarSection.className = "avatar-section";
 
-  // 右上角 discount
-  const discount = document.createElement("div");
-  discount.className = "discount-badge";
-  discount.textContent = "立减 16%";
-  videoWrapper.appendChild(discount);
-
-  // 右下角 tag
-  const tag = document.createElement("div");
-  tag.className = "tag";
-  tag.textContent = "职业教师";
-  videoWrapper.appendChild(tag);
-
-  card.appendChild(videoWrapper);
-
-  // ---- 内容 ----
-  const content = document.createElement("div");
-  content.className = "teacher-content";
-
-  const header = document.createElement("div");
-  header.className = "teacher-header";
+  const avatarWrapper = document.createElement("div");
+  avatarWrapper.className = "avatar-wrapper";
 
   const avatar = document.createElement("img");
   avatar.className = "avatar";
-  avatar.src = teacher.avatarUrl;   // 已经是 base64 格式
-  header.appendChild(avatar);
+  avatar.src = teacher.avatarUrl; // 已经是 base64 格式
+  avatar.alt = teacher.nickName;
+  avatarWrapper.appendChild(avatar);
 
-  const nameMeta = document.createElement("div");
+  const flagBadge = document.createElement("div");
+  flagBadge.className = "flag-badge";
+  const flagImage = createFlagBadge(teacher.fromCountryId);
+  flagBadge.appendChild(flagImage);
+  avatarWrapper.appendChild(flagBadge);
+
+  avatarSection.appendChild(avatarWrapper);
+  userCard.appendChild(avatarSection);
+
+  // ---- 内容区域 ----
+  const teacherContent = document.createElement("div");
+  teacherContent.className = "teacher-content";
+
+  // ---- 名字和评分行 ----
+  const nameRatingRow = document.createElement("div");
+  nameRatingRow.className = "name-rating-row";
+
+  // 左侧：名字和评分
+  const nameSection = document.createElement("div");
+  nameSection.className = "name-section";
 
   const name = document.createElement("div");
-  name.className = "name-row";
-  name.innerHTML = `
-      <div class="teacher-name">${teacher.nickName}</div>
-      <span class="badge-plus">Plus</span>
-  `;
-  nameMeta.appendChild(name);
+  name.className = "teacher-name";
+  name.textContent = teacher.nickName;
+  nameSection.appendChild(name);
 
-  const meta = document.createElement("div");
-  meta.className = "meta-row";
+  const ratingSection = document.createElement("div");
+  ratingSection.className = "rating-section";
 
-  meta.innerHTML = `
-      <span>${teacher.taughtLessonCount} 个课时</span>
-      <span class="meta-dot">${teacher.studentCount} 位学生</span>
-      <span class="meta-dot">${buildTeachLanguageLabel(teacher)}</span>
-      <span class="meta-dot">${countryFlagMap[teacher.fromCountryId]}</span>
-  `;
-  nameMeta.appendChild(meta);
+  const ratingContainer = document.createElement("div");
+  ratingContainer.className = "rating-container";
 
-  header.appendChild(nameMeta);
-  content.appendChild(header);
+  // 星星图标
+  const starIcon = createStarIcon();
+  starIcon.className = "star-icon";
+  ratingContainer.appendChild(starIcon);
 
-  // 简介
+  // 评分值
+  const ratingValue = document.createElement("span");
+  ratingValue.className = "rating-value";
+  ratingValue.textContent = (teacher.rating || 5.0).toFixed(1);
+  ratingContainer.appendChild(ratingValue);
+
+  ratingSection.appendChild(ratingContainer);
+
+  // 课程数
+  const lessonCount = document.createElement("span");
+  lessonCount.className = "lesson-count";
+  const lessonCountValue = teacher.taughtLessonCount ?? 0;
+  lessonCount.textContent = `${lessonCountValue} lessons`;
+  ratingSection.appendChild(lessonCount);
+
+  nameSection.appendChild(ratingSection);
+  nameRatingRow.appendChild(nameSection);
+
+  // 右侧：语言标签
+  const languageLabel = document.createElement("div");
+  languageLabel.className = "language-label";
+  const langInfo = buildTeachLanguageLabel(teacher);
+  if (langInfo.name) {
+    languageLabel.innerHTML = `<span>${langInfo.name} </span><span class="separator">· </span><span class="native">${langInfo.level}</span>`;
+  }
+  nameRatingRow.appendChild(languageLabel);
+
+  teacherContent.appendChild(nameRatingRow);
+
+  // ---- 简介 ----
   const intro = document.createElement("p");
   intro.className = "short-intro";
-  intro.textContent = teacher.shortIntroduction;
-  content.appendChild(intro);
+  intro.textContent = teacher.shortIntroduction ? `"${teacher.shortIntroduction}"` : "";
+  teacherContent.appendChild(intro);
 
-  // 底部
-  const footer = document.createElement("div");
-  footer.className = "card-footer";
+  // ---- 价格和按钮行 ----
+  const priceButtonRow = document.createElement("div");
+  priceButtonRow.className = "price-button-row";
 
-  footer.innerHTML = `
-      <div class="price">USD ${centsToUSDString(teacher.minUSDPriceInCents)} <span>/小时</span></div>
-  `;
+  const priceContainer = document.createElement("div");
+  priceContainer.className = "price-container";
 
-  const moreBtn = document.createElement("button");
-  moreBtn.className = "more-btn";
-  moreBtn.textContent = "查看更多";
-  moreBtn.onclick = () => window.open(teacher.profileUrl, "_blank");
-  footer.appendChild(moreBtn);
+  const priceValue = document.createElement("span");
+  priceValue.className = "price-value";
+  const priceInCents = teacher.minUSDPriceInCents ?? 0;
+  priceValue.textContent = `$${centsToUSDString(priceInCents)}`;
+  priceContainer.appendChild(priceValue);
 
-  content.appendChild(footer);
-  card.appendChild(content);
+  const priceUnit = document.createElement("span");
+  priceUnit.className = "price-unit";
+  priceUnit.textContent = "/ hour";
+  priceContainer.appendChild(priceUnit);
+
+  priceButtonRow.appendChild(priceContainer);
+
+  const lessonBtn = document.createElement("button");
+  lessonBtn.className = "lesson-btn";
+  lessonBtn.textContent = "Go for the lesson";
+  lessonBtn.onclick = () => window.open(teacher.profileUrl, "_blank");
+  priceButtonRow.appendChild(lessonBtn);
+
+  teacherContent.appendChild(priceButtonRow);
+
+  userCard.appendChild(teacherContent);
+  cardInner.appendChild(userCard);
+  card.appendChild(cardInner);
 
   return card;
 }
@@ -152,7 +267,8 @@ function render() {
 // ------------------------------
 function updateFromResponse(response) {
   if (response?.structuredContent?.teachers) {
-    teachers = response.structuredContent.teachers;
+    teachers = response.structuredContent.teachers.slice(0, 3);
+    totalTeachersCount = response.structuredContent.totalCount || null;
     render();
   }
 }
@@ -164,7 +280,8 @@ function handleSetGlobals(event) {
   const globals = event.detail?.globals;
   if (!globals?.toolOutput?.teachers) return;
   
-  teachers = globals.toolOutput.teachers;
+  teachers = globals.toolOutput.teachers.slice(0, 3);
+  totalTeachersCount = globals.toolOutput.totalCount || null;
   render();
 }
 

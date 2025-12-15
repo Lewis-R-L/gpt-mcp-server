@@ -8,198 +8,313 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  background: #f5f5f7;
-  color: #1f2933;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f5f5f5;
+  color: #0d0d0d;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .page {
-  max-width: 1200px;
-  margin: 32px auto;
-  padding: 0 16px 40px;
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  margin-bottom: 20px;
+  padding: 24px;
+  margin: 0;
+  color: #0d0d0d;
 }
 
-/* —— 卡片布局 —— */
+/* —— 卡片列表 —— */
 .teacher-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-}
-
-.teacher-card {
-  background: #ffffff;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
 }
 
-.video-wrapper {
+.teacher-card {
   position: relative;
-  width: 100%;
-  padding-top: 56.25%;
-  overflow: hidden;
-  background: #111827;
+  border-bottom: 1px solid rgba(13, 13, 13, 0.05);
 }
 
-.video-wrapper img {
+.teacher-card:last-child {
+  border-bottom: none;
+}
+
+.teacher-card-inner {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 24px;
+  gap: 12px;
+}
+
+.user-card {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  width: 100%;
+}
+
+/* —— 头像区域 —— */
+.avatar-section {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.flag-badge {
   position: absolute;
-  inset: 0;
+  right: -4px;
+  bottom: -4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid white;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.flag-badge img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* —— 播放 —— */
-.play-btn {
-  position: absolute;
-  left: 20px;
-  bottom: 20px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(15,23,42,0.85);
-  cursor: pointer;
-}
-.play-btn::before {
-  content: "";
-  width: 0;
-  height: 0;
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
-  border-left: 16px solid white;
-  margin-left: 3px;
-}
-
-/* —— 标记 —— */
-.discount-badge {
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #22c55e;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.tag {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.7);
-  color: white;
-}
-
-/* —— 内容 —— */
+/* —— 内容区域 —— */
 .teacher-content {
-  padding: 16px 18px 18px;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-.teacher-header {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 12px;
-  row-gap: 4px;
+/* —— 名字和评分行 —— */
+.name-rating-row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
-.avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  object-fit: cover;
+.name-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.name-row {
+.teacher-name {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0d0d0d;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.rating-section {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.teacher-name {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.badge-plus {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #6366f1, #ec4899);
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.meta-row {
+.rating-container {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  font-size: 12px;
-  color: #6b7280;
+  align-items: center;
+  gap: 4px;
 }
 
-.meta-dot::before {
-  content: "•";
-  margin-right: 4px;
+.star-icon {
+  width: 16px;
+  height: 16px;
+  color: #313140;
+  flex-shrink: 0;
+}
+
+.rating-value {
+  font-family: "Noto Sans", sans-serif;
+  font-size: 12.48px;
+  font-weight: 700;
+  color: #313140;
+  line-height: 17.828px;
+}
+
+.lesson-count {
+  font-family: "Noto Sans Display", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #313140;
+  line-height: 18px;
+}
+
+/* —— 语言标签（右上角）—— */
+.language-label {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #5d5d5d;
+  letter-spacing: -0.18px;
+  line-height: 20px;
+  text-align: right;
+}
+
+.language-label .separator {
+  font-weight: 700;
+}
+
+.language-label .native {
+  font-weight: 700;
+  color: #00b3bd;
 }
 
 /* —— 简介 —— */
 .short-intro {
-  font-size: 13px;
-  line-height: 1.4;
-  min-height: 38px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #5d5d5d;
+  letter-spacing: -0.18px;
+  line-height: 20px;
+  width: 100%;
 }
 
-/* —— footer —— */
-.card-footer {
+/* —— 价格和按钮行 —— */
+.price-button-row {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
+  width: 100%;
 }
 
-.price {
-  font-size: 18px;
+.price-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 24px;
+}
+
+.price-value {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-size: 17px;
   font-weight: 700;
+  color: #0d0d0d;
+  letter-spacing: -0.4px;
 }
 
-.price span {
+.price-unit {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
   font-size: 12px;
-  color: #6b7280;
-  margin-left: 2px;
+  font-weight: 400;
+  color: #5d5d5d;
 }
 
-.more-btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  border-radius: 999px;
-  border: none;
-  background: #111827;
+.lesson-btn {
+  background: #0d0d0d;
   color: white;
+  border: none;
+  border-radius: 999px;
+  height: 40px;
+  padding: 15px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   cursor: pointer;
+  transition: background 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 15px;
+  font-weight: 510;
+  letter-spacing: -0.24px;
+  line-height: 24px;
+  flex-shrink: 0;
 }
 
-/* —— 小屏 —— */
-@media (max-width: 480px) {
-  .page-title { font-size: 20px; }
-  .teacher-card { border-radius: 14px; }
+.lesson-btn:hover {
+  background: #1f1f1f;
+}
+
+/* —— 底部链接 —— */
+.footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px 24px;
+  border-top: 1px solid rgba(13, 13, 13, 0.05);
+  margin-top: 0;
+}
+
+.open-italki {
+  background: #ef4444;
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  border-radius: 999px;
+  height: 40px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  letter-spacing: -0.24px;
+  line-height: 24px;
+  transition: background 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+.open-italki:hover {
+  background: #dc2626;
+}
+
+/* —— 响应式 —— */
+@media (max-width: 600px) {
+  .user-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .name-rating-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .language-label {
+    text-align: left;
+  }
+  
+  .price-button-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .lesson-btn {
+    width: 100%;
+  }
 }

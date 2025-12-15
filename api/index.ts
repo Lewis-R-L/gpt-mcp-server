@@ -3,6 +3,8 @@
 
 import express from 'express';
 import { randomUUID } from 'node:crypto';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
@@ -161,6 +163,48 @@ export async function createApp(): Promise<express.Application> {
   app.use(express.json());
   app.use(express.text());
   app.use(express.urlencoded({ extended: true }));
+  
+  // Serve static files (icons) for templates
+  // In production (Vercel), serve from dist/mcp-server/public
+  // In development, serve from project root public
+  // Try multiple paths to find public/icons directory
+  const possibleIconPaths = [
+    path.join(process.cwd(), 'dist', 'mcp-server', 'public', 'icons'),
+    path.join(process.cwd(), 'public', 'icons'),
+  ];
+  
+  // If __dirname is available (not in ESM), try relative paths
+  try {
+    // @ts-ignore - __dirname may not be available in ESM
+    if (typeof __dirname !== 'undefined') {
+      // @ts-ignore
+      possibleIconPaths.push(
+        path.join(__dirname, '..', 'public', 'icons'),
+        path.join(__dirname, '..', '..', 'public', 'icons')
+      );
+    }
+  } catch (e) {
+    // __dirname not available, skip
+  }
+  
+  let iconsPath: string | null = null;
+  for (const iconPath of possibleIconPaths) {
+    if (fs.existsSync(iconPath)) {
+      iconsPath = iconPath;
+      break;
+    }
+  }
+  
+  if (iconsPath) {
+    app.use('/public/icons', express.static(iconsPath, {
+      maxAge: '1y', // Cache icons for 1 year
+      immutable: true
+    }));
+    console.log(`Static icons served from: ${iconsPath}`);
+  } else {
+    console.warn('Warning: Icons directory not found. Icons may not be available.');
+    console.warn('Searched paths:', possibleIconPaths);
+  }
   
   // Simple cookie parser middleware
   app.use((req, res, next) => {
