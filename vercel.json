@@ -1,13 +1,12 @@
 {
   "version": 2,
   "buildCommand": "npm run vercel-build",
-  "functions": {
-    "api/index.ts": {
-      "maxDuration": 30,
-      "memory": 1024,
-      "includeFiles": "dist/**"
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/mcp",
