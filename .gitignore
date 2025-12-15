@@ -25,3 +25,7 @@ certs
 ._*
 .Spotlight-V100
 .Trashes
+
+# Environment variables
+.env.local
+.env.*.local

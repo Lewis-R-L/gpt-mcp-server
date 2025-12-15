@@ -149,12 +149,12 @@ export function loadTemplate(templateName: string): string {
   const templateDir = path.join(templatesDir, templateName);
   
   // 调试信息：在开发环境或 Vercel 环境中输出路径信息
-  if (process.env.NODE_ENV !== 'production' || process.env.VERCEL === '1') {
-    console.log(`[Template Loader] Current dir: ${getCurrentDir()}`);
-    console.log(`[Template Loader] Templates dir: ${templatesDir}`);
-    console.log(`[Template Loader] Template dir: ${templateDir}`);
-    console.log(`[Template Loader] Template exists: ${fs.existsSync(templateDir)}`);
-  }
+  // if (process.env.NODE_ENV !== 'production' || process.env.VERCEL === '1') {
+  //   console.log(`[Template Loader] Current dir: ${getCurrentDir()}`);
+  //   console.log(`[Template Loader] Templates dir: ${templatesDir}`);
+  //   console.log(`[Template Loader] Template dir: ${templateDir}`);
+  //   console.log(`[Template Loader] Template exists: ${fs.existsSync(templateDir)}`);
+  // }
   
   if (!fs.existsSync(templateDir)) {
     // 提供更详细的错误信息，包括尝试过的路径
@@ -207,20 +207,63 @@ export function loadTemplate(templateName: string): string {
     });
   }
   
-  // 如果 HTML 中没有 <script> 标签，在 </body> 或末尾插入 JS
+  // 注入 CDN base URL 配置（如果设置了环境变量）
+  // 优先级：ICONS_CDN_BASE_URL > VERCEL_URL > 默认使用相对路径
+  let cdnBaseUrl = '';
+  if (process.env.ICONS_CDN_BASE_URL) {
+    cdnBaseUrl = process.env.ICONS_CDN_BASE_URL;
+    // console.log(`[Template Loader] Using ICONS_CDN_BASE_URL: ${cdnBaseUrl}`);
+  } else if (process.env.VERCEL_URL) {
+    // Vercel 环境，使用 Vercel 域名
+    cdnBaseUrl = `https://${process.env.VERCEL_URL}`;
+    // console.log(`[Template Loader] Using VERCEL_URL for CDN: ${cdnBaseUrl}`);
+  } else {
+    // console.log('[Template Loader] No CDN base URL configured, using relative paths');
+  }
+  
+  let cdnScript = '';
+  if (cdnBaseUrl) {
+    // 移除末尾的斜杠
+    cdnBaseUrl = cdnBaseUrl.replace(/\/$/, '');
+    const cdnBaseUrlJson = JSON.stringify(cdnBaseUrl);
+    // CDN 配置脚本必须在主脚本之前执行，且不使用 module 模式
+    cdnScript = `  <script>
+    window.ICONS_CDN_BASE_URL = ${cdnBaseUrlJson};
+    console.log('CDN Base URL set to:', window.ICONS_CDN_BASE_URL);
+  <\/script>`;
+  }
+  
+  // 如果 HTML 中没有 <script> 标签，在 </body> 或末尾插入 CDN 配置和 JS
+  // 注意：CDN 配置脚本必须在主脚本之前，且不使用 type="module"
+  // 使用字符串拼接而不是模板字符串，避免 JavaScript 代码中的 ${} 被错误解析
   if (js && !html.includes('<script')) {
     if (html.includes('</body>')) {
-      result = result.replace('</body>', `  <script type="module">\n${js}\n  </script>\n</body>`);
+      // CDN 配置脚本在前（非 module），主脚本在后
+      // 使用字符串拼接避免模板字符串插值问题
+      const scriptContent = cdnScript + '\n  <script>\n' + js + '\n  </script>\n';
+      result = result.replace('</body>', scriptContent + '</body>');
     } else {
-      result = `${result}\n<script type="module">\n${js}\n</script>`;
+      const scriptContent = '\n' + cdnScript + '\n<script>\n' + js + '\n</script>';
+      result = result + scriptContent;
     }
   } else if (js && html.includes('<script')) {
     // 如果已有 script 标签，在最后一个 script 标签后追加
+    // 但 CDN 配置需要在主脚本之前
     const lastScriptIndex = result.lastIndexOf('</script>');
     if (lastScriptIndex !== -1) {
-      result = result.slice(0, lastScriptIndex + 9) + `\n  <script type="module">\n${js}\n  </script>` + result.slice(lastScriptIndex + 9);
+      // 使用字符串拼接避免模板字符串插值问题
+      const scriptContent = '\n' + cdnScript + '\n  <script>\n' + js + '\n  </script>';
+      result = result.slice(0, lastScriptIndex + 9) + scriptContent + result.slice(lastScriptIndex + 9);
     } else {
-      result = `${result}\n<script type="module">\n${js}\n</script>`;
+      const scriptContent = '\n' + cdnScript + '\n<script>\n' + js + '\n</script>';
+      result = result + scriptContent;
+    }
+  } else if (cdnScript) {
+    // 如果没有 JS，但需要注入 CDN 配置
+    if (html.includes('</body>')) {
+      result = result.replace('</body>', cdnScript + '\n</body>');
+    } else {
+      result = result + '\n' + cdnScript;
     }
   }
   
