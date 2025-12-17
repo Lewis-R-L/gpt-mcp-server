@@ -2,6 +2,7 @@ import { MCPTool } from "mcp-server/src/interfaces";
 import z, { ZodRawShape } from "zod";
 import { render } from "ejs";
 import { TEACHER_RECOMMENDATION_UI_URI } from "./recommendation-ui";
+import { fetchWithTimeout } from "../../utils/fetch-with-timeout";
 
 const RECOMMEND_LANGUAGE_ENUM = z.enum([
     'english', 'japanese', 'spanish', 'chinese', 'french',
@@ -101,7 +102,7 @@ async function getRecommendedTeachers(language: string) {
     // The URL format is https://api.italki.com/api/v2/teacher/recommend_v4?language={language}
     const url = `https://api.italki.com/api/v2/teacher/recommend_v4?language=${language}`;
     console.log('Getting recommended teachers from URL: ' + url);
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
     const responseData: ItalkiAPIV2TeacherRecommendV4Response = await response.json();
     if (responseData.successs === 0) {
         throw new Error('Failed to get teacher recommendation');
@@ -151,7 +152,7 @@ function getTextForRecommendedTeachers(language: string, recommendedTeachers: Re
  */
 async function urlToBase64(url: string): Promise<string> {
     try {
-        const response = await fetch(url);
+        const response = await fetchWithTimeout(url, { timeoutMs: Number(process.env.ITALKI_ASSET_FETCH_TIMEOUT_MS ?? 10000) });
         if (!response.ok) {
             console.warn(`Failed to fetch ${url}: ${response.statusText}`);
             return url; // 如果获取失败，返回原始 URL
