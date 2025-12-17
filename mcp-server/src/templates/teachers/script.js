@@ -8,9 +8,17 @@ let teachers = [...(window.openai?.toolOutput?.teachers ?? [])].slice(0, 4);
 let totalTeachersCount = window.openai?.toolOutput?.totalCount || null;
 
 // -------------- 图标路径配置 --------------
-// 在生产环境中，这应该指向实际的图标路径（例如 /public/icons 或 /icons）
-// 在预览文件中，图标会被内联为 data URI
-const ICONS_BASE_PATH = window.ICONS_BASE_PATH || '/public/icons';
+// 图标通过 loader.ts 内联为 base64 data URI，存储在 window.ICON_DATA_URI 中
+// 如果有 CDN base URL，使用 CDN；否则使用相对路径
+// 优先级：ICON_DATA_URI > CDN URL > 相对路径
+const getIconsBasePath = () => {
+  // 如果设置了 CDN base URL，使用它
+  if (window.ICONS_CDN_BASE_URL) {
+    return window.ICONS_CDN_BASE_URL + '/public/icons';
+  }
+  // 否则使用相对路径
+  return '/public/icons';
+};
 
 // -------------- 工具映射 --------------
 // 国家代码到图标文件名的映射（特殊映射）
@@ -67,8 +75,8 @@ function getCountryFlag(countryId) {
     return window.ICON_DATA_URI[`flags/${flagFileName}.svg`];
   }
   
-  // 否则返回相对路径
-  return `${ICONS_BASE_PATH}/flags/${flagFileName}.svg`;
+  // 否则使用 CDN URL 或相对路径
+  return `${getIconsBasePath()}/flags/${flagFileName}.svg`;
 }
 
 function createFlagBadge(countryId) {
@@ -98,7 +106,8 @@ function createStarIcon() {
   if (window.ICON_DATA_URI && window.ICON_DATA_URI['star.svg']) {
     starUrl = window.ICON_DATA_URI['star.svg'];
   } else {
-    starUrl = `${ICONS_BASE_PATH}/star.svg`;
+    // 否则使用 CDN URL 或相对路径
+    starUrl = `${getIconsBasePath()}/star.svg`;
   }
   
   const img = document.createElement("img");
@@ -197,16 +206,20 @@ function createTeacherCard(teacher) {
   languageLabel.className = "language-label";
   const langInfo = buildTeachLanguageLabel(teacher);
   if (langInfo.name) {
-    languageLabel.innerHTML = `<span>${langInfo.name} </span><span class="separator">· </span><span class="native">${langInfo.level}</span>`;
+    // 根据是否为 Native 添加不同的类
+    const levelClass = langInfo.level === "Native" ? "native" : "non-native";
+    languageLabel.innerHTML = `<span>${langInfo.name} </span><span class="separator">· </span><span class="${levelClass}">${langInfo.level}</span>`;
   }
   nameRatingRow.appendChild(languageLabel);
 
   teacherContent.appendChild(nameRatingRow);
 
   // ---- 简介 ----
+  // 优先使用 shortIntroduction，如果没有则使用 longIntroduction，都没有则显示空白
+  const introText = teacher.shortIntroduction || teacher.longIntroduction || "";
   const intro = document.createElement("p");
   intro.className = "short-intro";
-  intro.textContent = teacher.shortIntroduction ? `"${teacher.shortIntroduction}"` : "";
+  intro.textContent = introText ? `"${introText}"` : "";
   teacherContent.appendChild(intro);
 
   // ---- 价格和按钮行 ----
@@ -219,7 +232,8 @@ function createTeacherCard(teacher) {
   const priceValue = document.createElement("span");
   priceValue.className = "price-value";
   const priceInCents = teacher.minUSDPriceInCents ?? 0;
-  priceValue.textContent = `$${centsToUSDString(priceInCents)}`;
+  // 在模板字符串中，$ 符号可以直接使用，不需要转义
+  priceValue.textContent = `$ ` + `${centsToUSDString(priceInCents)}`;
   priceContainer.appendChild(priceValue);
 
   const priceUnit = document.createElement("span");
@@ -291,9 +305,17 @@ window.addEventListener("openai:set_globals", handleSetGlobals, {
 });
 
 // ------------------------------
-//   初始化渲染
+//   初始化渲染和事件绑定
 // ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   render();
+  
+  // 绑定 "Open in italki" 点击事件
+  const openItalkiBtn = document.getElementById("open-italki-btn");
+  if (openItalkiBtn) {
+    openItalkiBtn.addEventListener("click", () => {
+      window.open("https://www.italki.com", "_blank");
+    });
+  }
 });
   

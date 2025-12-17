@@ -45,7 +45,12 @@ const TEACHER_RECOMMENDATION_UI_RESOURCE: MCPResource = {
                         // Maps to `connect-src` rule in the iframe CSP
                         connect_domains: ['https://italki.com'],
                         // Maps to style-src, style-src-elem, img-src, font-src, media-src etc. in the iframe CSP
-                        resource_domains: ['https://*.oaistatic.com'],
+                        // Add CDN domains for serving static icons
+                        resource_domains: [
+                            'https://*.oaistatic.com',
+                            'https://nonpliantly-fanatical-tonia.ngrok-free.dev',
+                            'https://gpt-mcp-server-2.vercel.app',
+                        ],
                     }
                 }
             }]

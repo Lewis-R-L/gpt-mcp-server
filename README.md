@@ -10,6 +10,48 @@ This workspace is initialized with Nx and contains a Node-based MCP server app `
 npm install
 ```
 
+### Environment Configuration
+
+The project uses `dotenv` to load environment variables from a `.env` file for local development.
+
+1. **Create `.env` file from example:**
+   ```bash
+   cp env.example .env
+   ```
+
+2. **Edit `.env` file** with your configuration:
+   ```bash
+   # Icons CDN Configuration
+   ICONS_CDN_BASE_URL=https://gpt-mcp-server-2.vercel.app
+   # or for local development with ngrok:
+   # ICONS_CDN_BASE_URL=https://your-ngrok-domain.ngrok-free.dev
+   
+   # Widget Domain
+   WIDGET_DOMAIN=https://italki.com
+   
+   # Server Configuration
+   PORT=3030
+   ```
+
+3. **Environment variables are automatically loaded** when you run the server locally.
+
+   **Note:** For Vercel deployment, set environment variables in Vercel project settings instead of using `.env` file.
+
+### Environment Configuration
+
+Create a `.env` file in the project root based on `env.example`:
+
+```bash
+cp env.example .env
+```
+
+Then edit `.env` to configure your settings. Key environment variables:
+
+- `ICONS_CDN_BASE_URL`: CDN base URL for serving static icons (e.g., `https://gpt-mcp-server-2.vercel.app` or your ngrok domain)
+- `WIDGET_DOMAIN`: Domain for OpenAI widget subdomain generation (default: `https://italki.com`)
+- `PORT`: Server port (default: `3030`)
+- See `env.example` for all available configuration options.
+
 ### Useful commands
 
 - Build:

@@ -1,6 +1,10 @@
+// Load environment variables from .env file (for local development)
+import 'dotenv/config';
+
 import express from 'express';
 import https from 'https';
 import fs from 'fs';
+import * as path from 'path';
 import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -178,6 +182,33 @@ async function startMcpServer() {
   app.use(express.json());
   app.use(express.text());
   app.use(express.urlencoded({ extended: true })); // For OAuth form submissions
+  
+  // Serve static files (icons) for templates
+  // Try multiple paths to find public/icons directory
+  const possibleIconPaths = [
+    path.join(process.cwd(), 'public', 'icons'),
+    path.join(process.cwd(), '..', 'public', 'icons'),
+    path.join(__dirname, '..', '..', 'public', 'icons'),
+  ];
+  
+  let iconsPath: string | null = null;
+  for (const iconPath of possibleIconPaths) {
+    if (fs.existsSync(iconPath)) {
+      iconsPath = iconPath;
+      break;
+    }
+  }
+  
+  if (iconsPath) {
+    app.use('/public/icons', express.static(iconsPath, {
+      maxAge: '1y', // Cache icons for 1 year
+      immutable: true
+    }));
+    console.log(`Static icons served from: ${iconsPath} at /public/icons`);
+  } else {
+    console.warn('Warning: Icons directory not found. Icons may not be available.');
+    console.warn('Searched paths:', possibleIconPaths);
+  }
   
   // Simple cookie parser middleware
   app.use((req, res, next) => {
