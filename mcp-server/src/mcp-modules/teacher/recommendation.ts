@@ -77,7 +77,7 @@ const TEACHER_RECOMMENDATION_OUTPUT_SCHEMA: ZodRawShape = {
     teachers: z
         .array(RECOMMENDED_TEACHER_INFO_SCHEMA)
         .describe('The recommended teachers (max 4 items).'),
-    url: z.string().describe('The URL of the recommended teachers on italki platform, you can use this URL to redirect the user to the italki platform to see the recommended teachers'),
+    teacherSearchUrl: z.string().describe('The URL of the recommended teachers on italki platform, you can use this URL to redirect the user to the italki platform to see the recommended teachers'),
 };
 
 /**
