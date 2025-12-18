@@ -5,7 +5,7 @@
 // 从 window.openai?.toolOutput 初始化数据
 
 let teachers = [...(window.openai?.toolOutput?.teachers ?? [])].slice(0, 4);
-let totalTeachersCount = window.openai?.toolOutput?.totalCount || null;
+let teacherSearchUrl = window.openai?.toolOutput?.teacherSearchUrl || null;
 
 // -------------- 图标路径配置 --------------
 // 图标通过 loader.ts 内联为 base64 data URI，存储在 window.ICON_DATA_URI 中
@@ -282,7 +282,7 @@ function render() {
 function updateFromResponse(response) {
   if (response?.structuredContent?.teachers) {
     teachers = response.structuredContent.teachers.slice(0, 3);
-    totalTeachersCount = response.structuredContent.totalCount || null;
+    teacherSearchUrl = response.structuredContent.teacherSearchUrl || null;
     render();
   }
 }
@@ -295,7 +295,7 @@ function handleSetGlobals(event) {
   if (!globals?.toolOutput?.teachers) return;
   
   teachers = globals.toolOutput.teachers.slice(0, 3);
-  totalTeachersCount = globals.toolOutput.totalCount || null;
+  teacherSearchUrl = globals.toolOutput.teacherSearchUrl || null;
   render();
 }
 
@@ -314,7 +314,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const openItalkiBtn = document.getElementById("open-italki-btn");
   if (openItalkiBtn) {
     openItalkiBtn.addEventListener("click", () => {
-      window.open("https://www.italki.com", "_blank");
+      const url = teacherSearchUrl || "https://www.italki.com";
+      window.open(url, "_blank");
     });
   }
 });

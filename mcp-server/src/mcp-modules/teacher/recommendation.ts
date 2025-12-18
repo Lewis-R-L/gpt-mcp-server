@@ -1,22 +1,20 @@
 import { MCPTool } from "mcp-server/src/interfaces";
 import z, { ZodRawShape } from "zod";
-import { render } from "ejs";
 import { TEACHER_RECOMMENDATION_UI_URI } from "./recommendation-ui";
 import { fetchWithTimeout } from "../../utils/fetch-with-timeout";
 import {
     LANGUAGE_ENUM,
     LanguageCode,
-    LANGUAGE_LEVEL_7,
     LANGUAGE_LEVEL_1,
     LANGUAGE_LEVEL_MAPPING,
     LEVEL_ENUM,
     LanguageLevel,
     COUNTRY_CODE_ENUM,
-    CountryCode,
     EXAM_ENUM,
-    ExamCode,
 } from "../../config/language-types";
-    
+import { examToCourseTags } from "../../config/exam-tag-mapping";
+
+// 入参的解释    
 const TEACHER_RECOMMENDATION_INPUT_SCHEMA: ZodRawShape = {
     language: LANGUAGE_ENUM.describe('The target language the user wants to learn (single value, lowercase English). **Example:** `"learning Spanish"` → `"spanish"` '),
     fromCountryId: z
@@ -49,7 +47,7 @@ const TEACHER_RECOMMENDATION_INPUT_TYPE = z.object(TEACHER_RECOMMENDATION_INPUT_
 
 type TeacherRecommendationInput = z.infer<typeof TEACHER_RECOMMENDATION_INPUT_TYPE>;
 
-
+// 出参的解释
 const LANGUAGE_CAPABILITY_SCHEMA = z.object({
     language: z.string().describe('The name of the language'),
     level: LEVEL_ENUM.describe('The level of the language equivalent to the European Language Framework')
@@ -74,110 +72,83 @@ const RECOMMENDED_TEACHER_INFO_SCHEMA = z.object({
 });
 
 type RecommendedTeacherInfo = z.infer<typeof RECOMMENDED_TEACHER_INFO_SCHEMA>;
-    
+
 const TEACHER_RECOMMENDATION_OUTPUT_SCHEMA: ZodRawShape = {
     teachers: z
         .array(RECOMMENDED_TEACHER_INFO_SCHEMA)
-        .describe('The recommended teachers (max 4 items).')
+        .describe('The recommended teachers (max 4 items).'),
+    url: z.string().describe('The URL of the recommended teachers on italki platform, you can use this URL to redirect the user to the italki platform to see the recommended teachers'),
 };
 
 /**
- * Map exam names to course tag codes
- * Exam -> Course Tag Code mapping based on i18n.ts
+ * Search teachers using /api/v2/teachers endpoint with filters
  */
-const EXAM_TO_TAG_CODE_MAP: Record<string, string> = {
-    // Chinese exams
-    "HSK": "T0060",
-    // English exams
-    "IELTS": "T0050",
-    "TOEFL": "T0051",
-    "TOEIC": "T0052",
-    "FCE": "T0053",
-    "BEC": "T0054",
-    "PET": "T0055",
-    "CAE": "T0056",
-    "CPE": "T0057",
-    "KET": "T0058",
-    "ILEC": "T0059",
-    "OET": "T0094",
-    // Japanese exams
-    "EJU": "T0071",
-    "JLPT": "T0070",
-    // Spanish exams
-    "CELU": "T0067",
-    "DELE": "T0066",
-    // Korean exams
-    "KLPT": "T0072",
-    "TOPIK": "T0073",
-    // Italian exams
-    "PLIDA": "T0095",
-    "CILS": "T0068",
-    "CELI": "T0069",
-    // German exams
-    "TestDaF": "T0077",
-    "DSH": "T0076",
-    // French exams
-    "DELF": "T0064",
-    "TELC": "T0052", // Note: TELC might use T0052 or T0099, using T0052 as primary
-    "TEF": "T0081",
-    "TCF": "T0080",
-    // Portuguese exams
-    "CELPE-Bras": "T0078",
-    // Russian exams
-    "TORFL": "T0074",
-    // Arabic exams
-    "ALPT": "T0075",
-};
+interface GetTeachersParams {
+    language: string;
+    fromCountryId?: string[];
+    courseCategory?: string[];
+    courseTags?: string[];
+    minPrice?: number;
+    maxPrice?: number;
+    isNative?: number;
+    alsoSpeak?: string[];
+    pageSize?: number;
+    page?: number;
+    userTimezone?: string;
+}
 
 /**
- * Convert exam names to course tags for CA003 (Test Preparation) category
- * Returns array of tag codes that correspond to the exam names
+ * Build italki frontend URL from GetTeachersParams
  */
-function examToCourseTags(exams: string[]): string[] {
-    return exams
-        .map(exam => EXAM_TO_TAG_CODE_MAP[exam])
-        .filter((tag): tag is string => tag !== undefined);
-}
-
-function convertRecommendedTeacher(teacherRecommendation: ItalkiAPIV2TeacherRecommendV4): RecommendedTeacherInfo {
-    const overallRating = parseFloat(teacherRecommendation.teacher_info.overall_rating || '0');
-    return {
-        id: teacherRecommendation.user_info.user_id.toString(),
-        profileUrl: `https://www.italki.com/teacher/${teacherRecommendation.user_info.user_id}`,
-        avatarUrl: `https://imagesavatar-static01.italki.com/${teacherRecommendation.user_info.avatar_file_name}_Avatar.jpg`,
-        nickName: teacherRecommendation.user_info.nickname,
-        fromCountryId: teacherRecommendation.user_info.origin_country_id,
-        videoThumbnailUrl: teacherRecommendation.teacher_info.video_pic_url,
-        videoUrl: teacherRecommendation.teacher_info.video_url,
-        teachLanguages: teacherRecommendation.teacher_info.teach_language.map(language => ({
-            language: language.language as LanguageCode,
-            level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
-        })),
-        alsoSpeakLanguages: teacherRecommendation.teacher_info.also_speak.map(language => ({
-            language: language.language as LanguageCode,
-            level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
-        })),
-        shortIntroduction: teacherRecommendation.teacher_info.short_signature,
-        longIntroduction: `${teacherRecommendation.teacher_info.about_me}\n${teacherRecommendation.teacher_info.about_teacher}\n${teacherRecommendation.teacher_info.teaching_style}`,
-        studentCount: teacherRecommendation.teacher_info.student_count,
-        taughtLessonCount: teacherRecommendation.teacher_info.session_count,
-        minUSDPriceInCents: teacherRecommendation.course_info.min_price,
-        rating: isNaN(overallRating) ? undefined : overallRating,
-    };
-}
-
-async function getRecommendedTeachers(language: string) {
-    // Call the italki API to suggest teachers
-    // The URL format is https://api.italki.com/api/v2/teacher/recommend_v4?language={language}
-    const url = `https://api.italki.com/api/v2/teacher/recommend_v4?language=${language}`;
-    console.log('Getting recommended teachers from URL: ' + url);
-    const response = await fetchWithTimeout(url);
-    const responseData: ItalkiAPIV2TeacherRecommendV4Response = await response.json();
-    if (responseData.successs === 0) {
-        throw new Error('Failed to get teacher recommendation');
+function buildItalkiTeachersUrl(params: GetTeachersParams): string {
+    const baseUrl = 'https://www.italki.com/teachers';
+    const queryParams: string[] = [];
+    
+    // fromCountryId -> from[]
+    if (params.fromCountryId?.length) {
+        params.fromCountryId.forEach((id, index) => {
+            queryParams.push(`from[${index}]=${encodeURIComponent(id)}`);
+        });
     }
-    const recommendedTeachers = responseData.data.map(convertRecommendedTeacher);
-    return recommendedTeachers;
+    
+    // courseCategory -> tags[]
+    if (params.courseCategory?.length) {
+        params.courseCategory.forEach((cat, index) => {
+            queryParams.push(`tags[${index}]=${encodeURIComponent(cat)}`);
+        });
+    }
+    
+    // courseTags -> childTags[]
+    if (params.courseTags?.length) {
+        params.courseTags.forEach((tag, index) => {
+            queryParams.push(`childTags[${index}]=${encodeURIComponent(tag)}`);
+        });
+    }
+    
+    // minPrice (cents) -> minPrice (dollars)
+    if (params.minPrice !== undefined) {
+        queryParams.push(`minPrice=${Math.round(params.minPrice / 100)}`);
+    }
+    
+    // maxPrice (cents) -> maxPrice (dollars)
+    if (params.maxPrice !== undefined) {
+        queryParams.push(`maxPrice=${Math.round(params.maxPrice / 100)}`);
+    }
+    
+    // isNative -> is_native
+    if (params.isNative !== undefined) {
+        queryParams.push(`is_native=${params.isNative}`);
+    }
+    
+    // alsoSpeak -> speaks[]
+    if (params.alsoSpeak?.length) {
+        params.alsoSpeak.forEach((lang, index) => {
+            queryParams.push(`speaks[${index}]=${encodeURIComponent(lang)}`);
+        });
+    }
+    
+    const queryString = queryParams.length > 0 ? '?' + queryParams.join('&') : '';
+    return `${baseUrl}/${params.language}${queryString}`;
 }
 
 /**
@@ -211,27 +182,29 @@ function convertTeacherFromSearch(teacherData: ItalkiAPIV2TeachersResponseData):
 }
 
 /**
- * Search teachers using /api/v2/teachers endpoint with filters
+ * 将图片或视频 URL 转换为 base64 data URL
  */
-interface GetTeachersParams {
-    language: string;
-    fromCountryId?: string[];
-    courseCategory?: string[];
-    courseTags?: string[];
-    minPrice?: number;
-    maxPrice?: number;
-    isNative?: number;
-    alsoSpeak?: string[];
-    pageSize?: number;
-    page?: number;
-    userTimezone?: string;
+async function urlToBase64(url: string): Promise<string> {
+    try {
+        const response = await fetchWithTimeout(url, { timeoutMs: Number(process.env.ITALKI_ASSET_FETCH_TIMEOUT_MS ?? 10000) });
+        if (!response.ok) {
+            console.warn(`Failed to fetch ${url}: ${response.statusText}`);
+            return url; // 如果获取失败，返回原始 URL
+        }
+        const buffer = await response.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        const contentType = response.headers.get('content-type') || 'image/jpeg';
+        return `data:${contentType};base64,${base64}`;
+    } catch (error) {
+        console.error(`Error converting ${url} to base64:`, error);
+        return url; // 如果出错，返回原始 URL
+    }
 }
 
-async function getTeachers(params: GetTeachersParams): Promise<RecommendedTeacherInfo[]> {
-    const url = 'https://api.italki.com/api/v2/teachers';
-    console.log('Getting teachers from URL: ' + url);
-    
-    // Build request body directly from params
+/**
+ * Convert GetTeachersParams to ItalkiAPIV2TeachersRequest format
+ */
+function convertToItalkiRequest(params: GetTeachersParams): ItalkiAPIV2TeachersRequest {
     const teacherInfo: any = {};
     if (params.fromCountryId && params.fromCountryId.length > 0) {
         teacherInfo.origin_country_id = params.fromCountryId;
@@ -243,7 +216,7 @@ async function getTeachers(params: GetTeachersParams): Promise<RecommendedTeache
         teacherInfo.course_tags = params.courseTags;
     }
 
-    const requestBody: ItalkiAPIV2TeachersRequest = {
+    return {
         teach_language: {
             language: params.language,
             ...(params.minPrice !== undefined && { min_price: params.minPrice }),
@@ -256,6 +229,14 @@ async function getTeachers(params: GetTeachersParams): Promise<RecommendedTeache
         page_size: params.pageSize || 4,
         page: params.page || 1,
     };
+}
+
+async function getTeachers(params: GetTeachersParams): Promise<RecommendedTeacherInfo[]> {
+    const url = 'https://api.italki.com/api/v2/teachers';
+    console.log('Getting teachers from URL: ' + url);
+    
+    // Build request body using shared conversion function
+    const requestBody = convertToItalkiRequest(params);
 
     const response = await fetchWithTimeout(url, {
         method: 'POST',
@@ -283,62 +264,6 @@ async function getTeachers(params: GetTeachersParams): Promise<RecommendedTeache
     const teachersWithBase64Avatars = await convertTeachersUrlsToBase64(teachers);
     
     return teachersWithBase64Avatars;
-}
-
-const TEACHER_RECOMMENDATION_TEXT_RENDER_EJS_TEMPLATE = `
-Here are <%=recommendedTeachers.length%> teachers recommended for learning language <%=language%>.
-
-<% recommendedTeachers.forEach((teacher, index) => { %>
-The teacher number <%=index + 1%> is "<%=teacher.nickName%>", whose ID is <%=teacher.id%>.
-The profile URL of this teacher is <%=teacher.profileUrl%>.
-The avatar URL of this teacher is <%=teacher.avatarUrl%>.
-The video URL of this teacher is <%=teacher.videoUrl%> with the thumbnail URL <%=teacher.videoThumbnailUrl%>.
-There are <%=teacher.teachLanguages.length%> language(s) taught by this teacher, which are:
-<% teacher.teachLanguages.forEach((language, index) => { %>
-<% if (language.level !== '${LANGUAGE_LEVEL_7}') { %>
-<%=index + 1%>. <%=language.language%> with level <%=language.level%> equivalent to the European Language Framework
-<% } else { %>
-<%=index + 1%>. Native speaker of <%=language.language%>
-<% } %>
-<% }) %>
-There are <%=teacher.alsoSpeakLanguages.length%> language(s) that this teacher can also speak, which are:
-<% teacher.alsoSpeakLanguages.forEach((language, index) => { %>
-<% if (language.level !== '${LANGUAGE_LEVEL_7}') { %>
-<%=index + 1%>. <%=language.language%> with level <%=language.level%> equivalent to the European Language Framework
-<% } else { %>
-<%=index + 1%>. Native speaker of <%=language.language%>
-<% } %>
-<% }) %>
-If using one sentence to describe this teacher, it should be "<%=teacher.shortIntroduction%>".
-This teacher has <%=teacher.studentCount%> taught lessons on italki platform and has taught <%=teacher.taughtLessonCount%> lessons.
-The minimum price of this teacher on italki platform is <%=teacher.minUSDPriceInCents/100%> USD.
-If you want to know more, here is more information about this teacher:
-"<%=teacher.longIntroduction%>"
-<% }) %>
-`;
-
-function getTextForRecommendedTeachers(language: string, recommendedTeachers: RecommendedTeacherInfo[]) {
-    return render(TEACHER_RECOMMENDATION_TEXT_RENDER_EJS_TEMPLATE, { language, recommendedTeachers });
-}
-
-/**
- * 将图片或视频 URL 转换为 base64 data URL
- */
-async function urlToBase64(url: string): Promise<string> {
-    try {
-        const response = await fetchWithTimeout(url, { timeoutMs: Number(process.env.ITALKI_ASSET_FETCH_TIMEOUT_MS ?? 10000) });
-        if (!response.ok) {
-            console.warn(`Failed to fetch ${url}: ${response.statusText}`);
-            return url; // 如果获取失败，返回原始 URL
-        }
-        const buffer = await response.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        const contentType = response.headers.get('content-type') || 'image/jpeg';
-        return `data:${contentType};base64,${base64}`;
-    } catch (error) {
-        console.error(`Error converting ${url} to base64:`, error);
-        return url; // 如果出错，返回原始 URL
-    }
 }
 
 /**
@@ -413,13 +338,10 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
 
         recommendedTeachers = (await getTeachers(teachersParams)).slice(0, 4);
         
-        // Use original URLs for text rendering (to keep text readable)
-        const recommendedTeachersText = getTextForRecommendedTeachers(validatedArgs.data.language, recommendedTeachers);
-        
         return {
-            content: [{ type: 'text', text: recommendedTeachersText }],
             structuredContent: {
-                teachers: recommendedTeachers
+                teachers: recommendedTeachers,
+                teacherSearchUrl: buildItalkiTeachersUrl(teachersParams)
             }
         };
     }
