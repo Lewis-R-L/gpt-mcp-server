@@ -3,37 +3,46 @@ import z, { ZodRawShape } from "zod";
 import { render } from "ejs";
 import { TEACHER_RECOMMENDATION_UI_URI } from "./recommendation-ui";
 import { fetchWithTimeout } from "../../utils/fetch-with-timeout";
-
-const RECOMMEND_LANGUAGE_ENUM = z.enum([
-    'english', 'japanese', 'spanish', 'chinese', 'french',
-    'italian', 'german', 'korean', 'russian', 'arabic', 'portuguese']);
-
-type RecommendLanguage = z.infer<typeof RECOMMEND_LANGUAGE_ENUM>;
-
-const LANGUAGE_LEVEL_7 = 'native';
-const LANGUAGE_LEVEL_6 = 'C2';
-const LANGUAGE_LEVEL_5 = 'C1';
-const LANGUAGE_LEVEL_4 = 'B2';
-const LANGUAGE_LEVEL_3 = 'B1';
-const LANGUAGE_LEVEL_2 = 'A2';
-const LANGUAGE_LEVEL_1 = 'beginner/A1';
-
-const LANGUAGE_LEVEL_MAPPING: Record<number, string> = {
-    7: LANGUAGE_LEVEL_7,
-    6: LANGUAGE_LEVEL_6,
-    5: LANGUAGE_LEVEL_5,
-    4: LANGUAGE_LEVEL_4,
-    3: LANGUAGE_LEVEL_3,
-    2: LANGUAGE_LEVEL_2,
-    1: LANGUAGE_LEVEL_1
-}
-
-const LEVEL_ENUM = z.enum([LANGUAGE_LEVEL_7, LANGUAGE_LEVEL_6, LANGUAGE_LEVEL_5, LANGUAGE_LEVEL_4, LANGUAGE_LEVEL_3, LANGUAGE_LEVEL_2, LANGUAGE_LEVEL_1]);
-
-type LanguageLevel = z.infer<typeof LEVEL_ENUM>;
+import {
+    LANGUAGE_ENUM,
+    LanguageCode,
+    LANGUAGE_LEVEL_7,
+    LANGUAGE_LEVEL_1,
+    LANGUAGE_LEVEL_MAPPING,
+    LEVEL_ENUM,
+    LanguageLevel,
+    COUNTRY_CODE_ENUM,
+    CountryCode,
+    EXAM_ENUM,
+    ExamCode,
+} from "../../config/language-types";
     
 const TEACHER_RECOMMENDATION_INPUT_SCHEMA: ZodRawShape = {
-    language: RECOMMEND_LANGUAGE_ENUM.describe('The language to search for teachers')
+    language: LANGUAGE_ENUM.describe('The target language the user wants to learn (single value, lowercase English). **Example:** `"learning Spanish"` → `"spanish"` '),
+    fromCountryId: z
+        .array(COUNTRY_CODE_ENUM)
+        .optional()
+        .describe("Optional. Teachers' origin country of origin/nationality (array, ISO country codes, e.g. ['JP', 'US', 'KR', 'IE']). Pay special attention when the user mentions **accent learning** and extract the relevant country if specified. **Example:** `\"British accent\"` → `[\"GB\"]`"),
+    alsoSpeak: z
+        .array(LANGUAGE_ENUM)
+        .optional()
+        .describe("Optional. Filter teachers by languages they also speak (array of languages)., like ['french', 'mandarin'], if the input language like 'mandarin' not in LANGUAGE_ENUM, you should not filter teachers by mandarin, change it to 'chinese'"),
+    is_native: z
+        .number()
+        .optional()
+        .describe("Optional. Filter teachers by whether they are native speakers. 1 indicates native speaker, 0 or undefined indicates any teacher."),
+    min_price: z
+        .number()
+        .optional()
+        .describe("Optional. Minimum price filter in **cents (USD)**. Extract **only the numeric value** from the price mentioned by the user, **without any currency symbol or unit**. **Important:** (1) The value must be in cents (USD) as an integer. (2) If the user inputs prices in other currencies (e.g., CNY, EUR, GBP), you must convert them to USD cents using the current exchange rate and round to the nearest integer. (3) If the user already mentions USD/dollar prices, convert dollars to cents (multiply by 100). (4) Recognize various price expressions: \"大于\", \"more than\", \"above\", \"at least\", \"from\", \"starting at\", etc. (5) **If the user mentions a price range** (e.g., \"5 to 10\", \"between 5 and 10\", \"5-10\"), **extract the minimum value** from the range for min_price. (6) If only one value is given, fill the corresponding field and leave the other empty. **Example:** `\"价格大于5元\"` → convert CNY to USD → convert USD to cents → `\"min_price\": \"...\"`, `\"价格5到10元\"` → `\"min_price\": \"...\" (5 converted)`, `\"价格大于5元小于250元\"` → `\"min_price\": \"...\", \"max_price\": \"...\"`, `\"$10 minimum\"` → `\"min_price\": \"1000\"`"),
+    max_price: z
+        .number()
+        .optional()
+        .describe("Optional. Maximum price filter in **cents (USD)**. Extract **only the numeric value** from the price mentioned by the user, **without any currency symbol or unit**. **Important:** (1) The value must be in cents (USD) as an integer. (2) If the user inputs prices in other currencies (e.g., CNY, EUR, GBP), you must convert them to USD cents using the current exchange rate and round to the nearest integer. (3) If the user already mentions USD/dollar prices, convert dollars to cents (multiply by 100). (4) Recognize various price expressions: \"不超过\", \"不超过\", \"less than\", \"below\", \"under\", \"up to\", \"maximum\", \"at most\", \"no more than\", etc. (5) **If the user mentions a price range** (e.g., \"5 to 10\", \"between 5 and 10\", \"5-10\"), **extract the maximum value** from the range for max_price.  (6) If only one value is given, fill the corresponding field and leave the other empty. **Example:** `\"价格不超过250元\"` → convert CNY to USD → convert USD to cents → `\"max_price\": \"...\"`, `\"价格5到10元\"` → `\"max_price\": \"...\" (10 converted)`, `\"价格大于5元小于250元\"` → `\"min_price\": \"...\", \"max_price\": \"...\"`, `\"under $20\"` → `\"max_price\": \"2000\"`"),
+    exam: z
+        .array(EXAM_ENUM)
+        .optional()
+        .describe("Optional. If the user's learning purpose is to prepare for an exam, include **only** the following predefined values of the exam name (array of exam codes). Chinese exams: `\"HSK\"`. English exams: `\"TOEFL\"`, `\"TOEIC\"`, `\"IELTS\"`, `\"FCE\"`, `\"BEC\"`, `\"PET\"`, `\"CAE\"`, `\"CPE\"`, `\"KET\"`, `\"ILEC\"`, `\"OET\"`. Japanese exams: `\"EJU\"`, `\"JLPT\"`. Spanish exams: `\"CELU\"`, `\"DELE\"`. Korean exams: `\"KLPT\"`, `\"TOPIK\"`. Italian exams: `\"PLIDA\"`, `\"CILS\"`, `\"CELI\"`. German exams: `\"TestDaF\"`, `\"DSH\"`. French exams: `\"DELF\"`, `\"TELC\"`, `\"TEF\"`, `\"TCF\"`. Portuguese exams: `\"CELPE-Bras\"`. Russian exams: `\"TORFL\"`. Arabic exams: `\"ALPT\"`. **Example:** `[\"IELTS\", \"TOEFL\"]`"),
 };
 
 const TEACHER_RECOMMENDATION_INPUT_TYPE = z.object(TEACHER_RECOMMENDATION_INPUT_SCHEMA);
@@ -67,8 +76,68 @@ const RECOMMENDED_TEACHER_INFO_SCHEMA = z.object({
 type RecommendedTeacherInfo = z.infer<typeof RECOMMENDED_TEACHER_INFO_SCHEMA>;
     
 const TEACHER_RECOMMENDATION_OUTPUT_SCHEMA: ZodRawShape = {
-    teachers: z.array(RECOMMENDED_TEACHER_INFO_SCHEMA).describe('The recommended teachers')
+    teachers: z
+        .array(RECOMMENDED_TEACHER_INFO_SCHEMA)
+        .describe('The recommended teachers (max 4 items).')
 };
+
+/**
+ * Map exam names to course tag codes
+ * Exam -> Course Tag Code mapping based on i18n.ts
+ */
+const EXAM_TO_TAG_CODE_MAP: Record<string, string> = {
+    // Chinese exams
+    "HSK": "T0060",
+    // English exams
+    "IELTS": "T0050",
+    "TOEFL": "T0051",
+    "TOEIC": "T0052",
+    "FCE": "T0053",
+    "BEC": "T0054",
+    "PET": "T0055",
+    "CAE": "T0056",
+    "CPE": "T0057",
+    "KET": "T0058",
+    "ILEC": "T0059",
+    "OET": "T0094",
+    // Japanese exams
+    "EJU": "T0071",
+    "JLPT": "T0070",
+    // Spanish exams
+    "CELU": "T0067",
+    "DELE": "T0066",
+    // Korean exams
+    "KLPT": "T0072",
+    "TOPIK": "T0073",
+    // Italian exams
+    "PLIDA": "T0095",
+    "CILS": "T0068",
+    "CELI": "T0069",
+    // German exams
+    "TestDaF": "T0077",
+    "DSH": "T0076",
+    // French exams
+    "DELF": "T0064",
+    "TELC": "T0052", // Note: TELC might use T0052 or T0099, using T0052 as primary
+    "TEF": "T0081",
+    "TCF": "T0080",
+    // Portuguese exams
+    "CELPE-Bras": "T0078",
+    // Russian exams
+    "TORFL": "T0074",
+    // Arabic exams
+    "ALPT": "T0075",
+};
+
+/**
+ * Convert exam names to course tags for CA003 (Test Preparation) category
+ * Returns array of tag codes that correspond to the exam names
+ */
+function examToCourseTags(exams: string[]): string[] {
+    return exams
+        .map(exam => EXAM_TO_TAG_CODE_MAP[exam])
+        .filter((tag): tag is string => tag !== undefined);
+}
 
 function convertRecommendedTeacher(teacherRecommendation: ItalkiAPIV2TeacherRecommendV4): RecommendedTeacherInfo {
     const overallRating = parseFloat(teacherRecommendation.teacher_info.overall_rating || '0');
@@ -81,11 +150,11 @@ function convertRecommendedTeacher(teacherRecommendation: ItalkiAPIV2TeacherReco
         videoThumbnailUrl: teacherRecommendation.teacher_info.video_pic_url,
         videoUrl: teacherRecommendation.teacher_info.video_url,
         teachLanguages: teacherRecommendation.teacher_info.teach_language.map(language => ({
-            language: language.language as RecommendLanguage,
+            language: language.language as LanguageCode,
             level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
         })),
         alsoSpeakLanguages: teacherRecommendation.teacher_info.also_speak.map(language => ({
-            language: language.language as RecommendLanguage,
+            language: language.language as LanguageCode,
             level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
         })),
         shortIntroduction: teacherRecommendation.teacher_info.short_signature,
@@ -109,6 +178,111 @@ async function getRecommendedTeachers(language: string) {
     }
     const recommendedTeachers = responseData.data.map(convertRecommendedTeacher);
     return recommendedTeachers;
+}
+
+/**
+ * Convert teacher data from /api/v2/teachers endpoint to RecommendedTeacherInfo format
+ */
+function convertTeacherFromSearch(teacherData: ItalkiAPIV2TeachersResponseData): RecommendedTeacherInfo {
+    const overallRating = parseFloat(teacherData.teacher_info.overall_rating || '0');
+    return {
+        id: teacherData.user_info.user_id.toString(),
+        profileUrl: `https://www.italki.com/teacher/${teacherData.user_info.user_id}`,
+        avatarUrl: `https://imagesavatar-static01.italki.com/${teacherData.user_info.avatar_file_name}_Avatar.jpg`,
+        nickName: teacherData.user_info.nickname,
+        fromCountryId: teacherData.user_info.origin_country_id,
+        videoThumbnailUrl: teacherData.teacher_info.video_pic_url || teacherData.teacher_info.qiniu_video_pic_url,
+        videoUrl: teacherData.teacher_info.video_url || teacherData.teacher_info.qiniu_video_url,
+        teachLanguages: teacherData.teacher_info.teach_language.map(language => ({
+            language: language.language as LanguageCode,
+            level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
+        })),
+        alsoSpeakLanguages: teacherData.teacher_info.also_speak.map(language => ({
+            language: language.language as LanguageCode,
+            level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
+        })),
+        shortIntroduction: teacherData.teacher_info.short_signature,
+        longIntroduction: `${teacherData.teacher_info.about_me}\n${teacherData.teacher_info.about_teacher}\n${teacherData.teacher_info.teaching_style}`,
+        studentCount: teacherData.teacher_info.student_count,
+        taughtLessonCount: teacherData.teacher_info.session_count,
+        minUSDPriceInCents: teacherData.course_info.min_price,
+        rating: isNaN(overallRating) ? undefined : overallRating,
+    };
+}
+
+/**
+ * Search teachers using /api/v2/teachers endpoint with filters
+ */
+interface GetTeachersParams {
+    language: string;
+    fromCountryId?: string[];
+    courseCategory?: string[];
+    courseTags?: string[];
+    minPrice?: number;
+    maxPrice?: number;
+    isNative?: number;
+    alsoSpeak?: string[];
+    pageSize?: number;
+    page?: number;
+    userTimezone?: string;
+}
+
+async function getTeachers(params: GetTeachersParams): Promise<RecommendedTeacherInfo[]> {
+    const url = 'https://api.italki.com/api/v2/teachers';
+    console.log('Getting teachers from URL: ' + url);
+    
+    // Build request body directly from params
+    const teacherInfo: any = {};
+    if (params.fromCountryId && params.fromCountryId.length > 0) {
+        teacherInfo.origin_country_id = params.fromCountryId;
+    }
+    if (params.courseCategory && params.courseCategory.length > 0) {
+        teacherInfo.course_category = params.courseCategory;
+    }
+    if (params.courseTags && params.courseTags.length > 0) {
+        teacherInfo.course_tags = params.courseTags;
+    }
+
+    const requestBody: ItalkiAPIV2TeachersRequest = {
+        teach_language: {
+            language: params.language,
+            ...(params.minPrice !== undefined && { min_price: params.minPrice }),
+            ...(params.maxPrice !== undefined && { max_price: params.maxPrice }),
+            ...(params.isNative !== undefined && { is_native: params.isNative }),
+        },
+        ...(Object.keys(teacherInfo).length > 0 && { teacher_info: teacherInfo }),
+        ...(params.alsoSpeak && params.alsoSpeak.length > 0 && { speak_language_and: params.alsoSpeak }),
+        // ...(params.userTimezone && { user_timezone: params.userTimezone }),
+        page_size: params.pageSize || 4,
+        page: params.page || 1,
+    };
+
+    const response = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/plain, */*',
+        },
+        body: JSON.stringify(requestBody),
+        timeoutMs: Number(process.env.ITALKI_FETCH_TIMEOUT_MS || 12000),
+    });
+
+    const responseData: ItalkiAPIV2TeachersResponse = await response.json();
+    if (responseData.successs === 0) {
+        throw new Error('Failed to get teacher recommendation');
+    }
+    
+    if (!responseData.data || responseData.data.length === 0) {
+        return [];
+    }
+
+    // Convert response data to RecommendedTeacherInfo format
+    const teachers = responseData.data.map(convertTeacherFromSearch);
+    
+    // Convert avatar URLs to base64
+    const teachersWithBase64Avatars = await convertTeachersUrlsToBase64(teachers);
+    
+    return teachersWithBase64Avatars;
 }
 
 const TEACHER_RECOMMENDATION_TEXT_RENDER_EJS_TEMPLATE = `
@@ -191,7 +365,7 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
     type: 'tool',
     config: {
         title: 'Get teacher recommendation on italki platform',
-        description: "Get teacher recommendation for a given language on italki platform. Only teachers with teaching language in the enum of language field of the input schema are supported. The returned text will be a text version of the teachers' profile which may be a little bit different from the structured output. Each time you call this tool, it will return the latest suggested teachers, which may be different from the previous call. This tool doesn't support searching with criteria, which will be provided by another tool in the future. So don't try to search with criteria.",
+        description: "Get teacher recommendation for a given language on italki platform (max 4 teachers). Optional filters are accepted (fromCountryId, alsoSpeak, availableTime). Note: current upstream API integration only supports filtering by language; optional filters are currently not applied server-side and are reserved for future expansion.",
         inputSchema: TEACHER_RECOMMENDATION_INPUT_SCHEMA,
         outputSchema: TEACHER_RECOMMENDATION_OUTPUT_SCHEMA,
         annotations: {
@@ -211,12 +385,33 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
             throw new Error('Invalid input: ' + validatedArgs.error.message);
         }
 
-        // Get teacher recommendation
-        const recommendedTeachers = await getRecommendedTeachers(validatedArgs.data.language);
-        
-        // Convert avatar URL to base64 for structuredContent
-        // Note: videoThumbnailUrl and videoUrl are NOT converted to base64, they remain as original URLs
-        const recommendedTeachersWithBase64 = await convertTeachersUrlsToBase64(recommendedTeachers);
+        let recommendedTeachers: RecommendedTeacherInfo[];
+
+        // Convert exam to course_tags if specified
+        let courseTags: string[] | undefined;
+        let courseCategory: string[] | undefined;
+        if (validatedArgs.data.exam && validatedArgs.data.exam.length > 0) {
+            const examTags = examToCourseTags(validatedArgs.data.exam);
+            if (examTags.length > 0) {
+                courseTags = examTags;
+                courseCategory = ["CA003"]; // Test Preparation category
+            }
+        }
+
+        // Build parameters directly from input
+        const teachersParams: GetTeachersParams = {
+            language: validatedArgs.data.language,
+            fromCountryId: validatedArgs.data.fromCountryId,
+            alsoSpeak: validatedArgs.data.alsoSpeak,
+            isNative: validatedArgs.data.is_native,
+            minPrice: validatedArgs.data.min_price,
+            maxPrice: validatedArgs.data.max_price,
+            courseCategory,
+            courseTags,
+            pageSize: 4,
+        };
+
+        recommendedTeachers = (await getTeachers(teachersParams)).slice(0, 4);
         
         // Use original URLs for text rendering (to keep text readable)
         const recommendedTeachersText = getTextForRecommendedTeachers(validatedArgs.data.language, recommendedTeachers);
@@ -224,7 +419,7 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
         return {
             content: [{ type: 'text', text: recommendedTeachersText }],
             structuredContent: {
-                teachers: recommendedTeachersWithBase64
+                teachers: recommendedTeachers
             }
         };
     }
