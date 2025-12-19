@@ -5,9 +5,7 @@ import { fetchWithTimeout } from "../../utils/fetch-with-timeout";
 
 let allCountryList: string[] | null = null;
 
-interface ItalkiAPIV3AllCountryResponse {
-    data: Array<{ code: string }>;
-}
+type ItalkiAPIV3AllCountryResponse = Array<{ code: string }>;
 
 async function getAllCountryList(): Promise<string[]> {
     if (allCountryList) {
@@ -16,7 +14,7 @@ async function getAllCountryList(): Promise<string[]> {
     const response = await fetchWithTimeout('https://api.italki.com/api/v3/client_conf/all_country');
     const responseData: ItalkiAPIV3AllCountryResponse = await response.json();
     // Convert from [{code: "HK"}, {code: "AD"}, ...] to ["HK", "AD", ...]
-    allCountryList = responseData.data.map(country => country.code);
+    allCountryList = responseData.map(country => country.code);
     return allCountryList;
 }
 
