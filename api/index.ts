@@ -376,18 +376,23 @@ export async function createApp(): Promise<express.Application> {
         return;
       }
       
-      const session = getSession(sessionId);
+      // Find existing session, or create a new one if not found
+      let session = getSession(sessionId);
       if (!session) {
-        console.error(`Session not found: ${sessionId}`);
-        res.status(400).json({
-          jsonrpc: '2.0',
-          id: req.body?.id || null,
-          error: {
-            code: -32000,
-            message: 'Session not found'
-          }
-        });
-        return;
+        // Session not found - this can happen if:
+        // 1. Session expired (30min timeout)
+        // 2. Server restarted (sessions stored in memory)
+        // 3. Invalid session ID provided
+        // 
+        // Security consideration: We create a new session instead of rejecting.
+        // This is safe because:
+        // - Session only stores transport state, not auth credentials
+        // - Authentication is handled separately via Authorization header
+        // - New session ID is server-generated (UUID), not client-provided
+        // - Session will be cleaned up after 30min of inactivity
+        console.log(`Session not found: ${sessionId}, creating new session (session may have expired or server restarted)`);
+        session = createMCPSession();
+        res.set('Mcp-Session-Id', session.id);
       }
       
       await session.transport.handleRequest(req as any, res as any, req.body);
