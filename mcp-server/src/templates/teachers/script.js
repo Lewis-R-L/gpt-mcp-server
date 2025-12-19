@@ -281,7 +281,7 @@ function render() {
 // ------------------------------
 function updateFromResponse(response) {
   if (response?.structuredContent?.teachers) {
-    teachers = response.structuredContent.teachers.slice(0, 3);
+    teachers = response.structuredContent.teachers.slice(0, 4);
     teacherSearchUrl = response.structuredContent.teacherSearchUrl || null;
     render();
   }
