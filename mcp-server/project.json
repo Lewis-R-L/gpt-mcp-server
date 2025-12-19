@@ -30,11 +30,6 @@
             "glob": "**/*",
             "input": "public/icons",
             "output": "public/icons"
-          },
-          {
-            "glob": "i18n.ts",
-            "input": "mcp-server/src",
-            "output": "."
           }
         ],
         "generatePackageJson": true,
@@ -42,13 +37,7 @@
           "sourcemap": true,
           "outExtension": {
             ".js": ".js"
-          },
-          "external": [
-            "./i18n",
-            "../i18n",
-            "../../src/i18n",
-            "../../i18n"
-          ]
+          }
         }
       },
       "configurations": {

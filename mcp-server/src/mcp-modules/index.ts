@@ -5,7 +5,7 @@ import { default as ALL_TAUGHT_LANGUAGES_TOOL } from './metadata/all-language';
 import { default as ALL_COUNTRIES_TOOL } from './metadata/all-countries';
 import { default as TEACHER_RECOMMENDATION_TOOL } from './teacher/recommendation';
 import { default as TEACHER_RECOMMENDATION_UI_RESOURCE } from './teacher/recommendation-ui';
-import { default as TEACHER_SEARCH_CATEGORY_TOOL } from './teacher/search-category';
+// import { default as TEACHER_SEARCH_CATEGORY_TOOL } from './teacher/search-category';
 // import { default as MY_CALENDAR_EVENTS_TOOL } from './my/calendar';
 
 export const MCP_MODULES: Array<MCPModule> = [
@@ -14,6 +14,6 @@ export const MCP_MODULES: Array<MCPModule> = [
     ALL_COUNTRIES_TOOL,
     TEACHER_RECOMMENDATION_TOOL,
     TEACHER_RECOMMENDATION_UI_RESOURCE,
-    TEACHER_SEARCH_CATEGORY_TOOL,
+    // TEACHER_SEARCH_CATEGORY_TOOL,
     // MY_CALENDAR_EVENTS_TOOL
 ];
