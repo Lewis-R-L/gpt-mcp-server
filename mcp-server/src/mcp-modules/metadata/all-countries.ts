@@ -1,7 +1,24 @@
 import z, { ZodRawShape } from "zod";
 import { MCPTool } from "../../interfaces";
 import { render } from "ejs";
-import countryConfig from "../../config/country";
+import { fetchWithTimeout } from "../../utils/fetch-with-timeout";
+
+let allCountryList: string[] | null = null;
+
+interface ItalkiAPIV3AllCountryResponse {
+    data: Array<{ code: string }>;
+}
+
+async function getAllCountryList(): Promise<string[]> {
+    if (allCountryList) {
+        return allCountryList;
+    }
+    const response = await fetchWithTimeout('https://api.italki.com/api/v3/client_conf/all_country');
+    const responseData: ItalkiAPIV3AllCountryResponse = await response.json();
+    // Convert from [{code: "HK"}, {code: "AD"}, ...] to ["HK", "AD", ...]
+    allCountryList = responseData.data.map(country => country.code);
+    return allCountryList;
+}
 
 const ALL_COUNTRIES_OUTPUT_SCHEMA: ZodRawShape = {
     countries: z.array(z.string()).describe('The list of all ISO country codes supported on italki platform'),
@@ -27,7 +44,7 @@ const ALL_COUNTRIES_TOOL: MCPTool<undefined, ZodRawShape> = {
         outputSchema: ALL_COUNTRIES_OUTPUT_SCHEMA,
     },
     toolCallback: async () => {
-        const countries = countryConfig.countryCode;
+        const countries = await getAllCountryList();
         return {
             content: [{ type: 'text', text: render(ALL_COUNTRIES_TEXT_RENDER_EJS_TEMPLATE, { countries }) }],
             structuredContent: {

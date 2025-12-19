@@ -99,8 +99,6 @@ interface GetTeachersParams {
 function buildItalkiTeachersUrl(params: GetTeachersParams): string {
     const baseUrl = 'https://www.italki.com/teachers';
     const queryParams: string[] = [];
-
-    console.error('params for URL building:', JSON.stringify(params, null, 2));
     
     // fromCountryId -> from[]
     if (params.fromCountryId && Array.isArray(params.fromCountryId) && params.fromCountryId.length > 0) {
@@ -231,12 +229,12 @@ function convertToItalkiRequest(params: GetTeachersParams): ItalkiAPIV2TeachersR
 
 async function getTeachers(params: GetTeachersParams): Promise<RecommendedTeacherInfo[]> {
     const url = 'https://api.italki.com/api/v2/teachers';
-    console.error('Getting teachers from URL: ' + url);
+    console.log('Getting teachers from URL: ' + url);
     
     // Build request body using shared conversion function
     const requestBody = convertToItalkiRequest(params);
 
-    console.error('requestBody:', JSON.stringify(requestBody, null, 2));
+    console.log('requestBody:', JSON.stringify(requestBody, null, 2));
 
     const response = await fetchWithTimeout(url, {
         method: 'POST',
@@ -312,8 +310,6 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
 
         let recommendedTeachers: RecommendedTeacherInfo[];
 
-        console.error('validatedArgs:', JSON.stringify(validatedArgs, null, 2));
-
         // Convert exam to course_tags if specified
         let courseTags: string[] | undefined;
         let courseCategory: string[] | undefined;
@@ -339,10 +335,7 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
             pageSize: 4,
         };
 
-        console.error('teachersParams for URL building:', JSON.stringify(teachersParams, null, 2));
-        console.error('Raw validatedArgs.data:', JSON.stringify(validatedArgs.data, null, 2));
         const teacherSearchUrl = buildItalkiTeachersUrl(teachersParams);
-        console.error('Generated teacherSearchUrl:', teacherSearchUrl);
 
         recommendedTeachers = (await getTeachers(teachersParams)).slice(0, 4);
         
