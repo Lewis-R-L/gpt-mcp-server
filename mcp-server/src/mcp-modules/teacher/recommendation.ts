@@ -340,7 +340,7 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
         recommendedTeachers = (await getTeachers(teachersParams)).slice(0, 4);
         
         return {
-            content: [{ type: 'text', resource: `Here are the recommended teachers: ${JSON.stringify(recommendedTeachers)}` }],
+            content: [{ type: 'text', text: `Here are the recommended teachers: ${JSON.stringify(recommendedTeachers)}` }],
             structuredContent: {
                 teachers: recommendedTeachers,
                 teacherSearchUrl: teacherSearchUrl
