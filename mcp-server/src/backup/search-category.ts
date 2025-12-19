@@ -1,18 +1,7 @@
-import { MCPTool } from "mcp-server/src/interfaces";
+import { MCPTool } from "../interfaces";
 import z, { ZodRawShape } from "zod";
-import { fetchWithTimeout } from "../../utils/fetch-with-timeout";
-
-// Lazy load i18n to avoid bundling it in the build
-let I18N: Record<string, unknown> | null = null;
-
-async function getI18N(): Promise<Record<string, unknown>> {
-    if (!I18N) {
-        // Dynamic import - this will be loaded at runtime, not bundled
-        const i18nModule = await import("../../i18n");
-        I18N = i18nModule.default as Record<string, unknown>;
-    }
-    return I18N;
-}
+import I18N from "../i18n";
+import { fetchWithTimeout } from "../utils/fetch-with-timeout";
 
 const CATEGORY_INPUT_SCHEMA: ZodRawShape = {
   language: z.string().describe("The language to get course categories for (e.g. 'english', 'japanese')"),
@@ -63,22 +52,21 @@ async function getTeacherSearchCategories(language: string): Promise<Array<z.inf
   }
 
   // 这里直接把翻译码转换成 { code, translation } 结构，避免在 toolCallback 里再加工一遍
-  return Promise.all(responseData.data.map(async (item) => ({
-    category: await toCodeWithTranslation(item.category),
-    tags: await Promise.all(item.tags.map(toCodeWithTranslation)),
-  })));
+  return responseData.data.map((item) => ({
+    category: toCodeWithTranslation(item.category),
+    tags: item.tags.map(toCodeWithTranslation),
+  }));
 }
 
-async function translateCode(code: string): Promise<string | undefined> {
+function translateCode(code: string): string | undefined {
   // i18n.ts is a big dictionary: { [code: string]: string }
   // Only treat string values as valid translations.
-  const i18n = await getI18N();
-  const value = i18n[code];
+  const value = (I18N as Record<string, unknown>)[code];
   return typeof value === "string" ? value : undefined;
 }
 
-async function toCodeWithTranslation(code: string): Promise<CodeWithTranslation> {
-  const translation = await translateCode(code);
+function toCodeWithTranslation(code: string): CodeWithTranslation {
+  const translation = translateCode(code);
   return translation ? { code, translation } : { code };
 }
 
