@@ -3,28 +3,24 @@ import z, { ZodRawShape } from "zod";
 import { TEACHER_RECOMMENDATION_UI_URI } from "./recommendation-ui";
 import { fetchWithTimeout } from "../../utils/fetch-with-timeout";
 import {
-    LANGUAGE_ENUM,
-    LanguageCode,
     LANGUAGE_LEVEL_1,
     LANGUAGE_LEVEL_MAPPING,
     LEVEL_ENUM,
     LanguageLevel,
-    COUNTRY_CODE_ENUM,
-    EXAM_ENUM,
 } from "../../config/language-types";
 import { examToCourseTags } from "../../config/exam-tag-mapping";
 
 // 入参的解释    
 const TEACHER_RECOMMENDATION_INPUT_SCHEMA: ZodRawShape = {
-    language: LANGUAGE_ENUM.describe('The target language the user wants to learn (single value, lowercase English). **Example:** `"learning Spanish"` → `"spanish"` '),
+    language: z.string().describe('Target language (lowercase English, e.g. "spanish", "english", "chinese"). Example: "learning Spanish" → "spanish"'),
     fromCountryId: z
-        .array(COUNTRY_CODE_ENUM)
+        .array(z.string())
         .optional()
-        .describe("Optional. Teachers' origin country of origin/nationality (array, ISO country codes, e.g. ['JP', 'US', 'KR', 'IE']). Pay special attention when the user mentions **accent learning** and extract the relevant country if specified. **Example:** `\"British accent\"` → `[\"GB\"]`"),
+        .describe("Optional. Teachers' origin countries (array of ISO country codes, e.g. ['GB', 'US', 'JP']). Extract country for accent learning. Example: 'British accent' → ['GB']"),
     alsoSpeak: z
-        .array(LANGUAGE_ENUM)
+        .array(z.string())
         .optional()
-        .describe("Optional. Filter teachers by languages they also speak (array of languages)., like ['french', 'mandarin'], if the input language like 'mandarin' not in LANGUAGE_ENUM, you should not filter teachers by mandarin, change it to 'chinese'"),
+        .describe("Optional. Languages teachers also speak (array, lowercase English). Map 'mandarin' to 'chinese' if needed. Example: ['french', 'chinese']"),
     is_native: z
         .number()
         .optional()
@@ -38,7 +34,7 @@ const TEACHER_RECOMMENDATION_INPUT_SCHEMA: ZodRawShape = {
         .optional()
         .describe("Optional. Maximum price filter in **cents (USD)**. Extract **only the numeric value** from the price mentioned by the user, **without any currency symbol or unit**. **Important:** (1) The value must be in cents (USD) as an integer. (2) If the user inputs prices in other currencies (e.g., CNY, EUR, GBP), you must convert them to USD cents using the current exchange rate and round to the nearest integer. (3) If the user already mentions USD/dollar prices, convert dollars to cents (multiply by 100). (4) Recognize various price expressions: \"不超过\", \"不超过\", \"less than\", \"below\", \"under\", \"up to\", \"maximum\", \"at most\", \"no more than\", etc. (5) **If the user mentions a price range** (e.g., \"5 to 10\", \"between 5 and 10\", \"5-10\"), **extract the maximum value** from the range for max_price.  (6) If only one value is given, fill the corresponding field and leave the other empty. **Example:** `\"价格不超过250元\"` → convert CNY to USD → convert USD to cents → `\"max_price\": \"...\"`, `\"价格5到10元\"` → `\"max_price\": \"...\" (10 converted)`, `\"价格大于5元小于250元\"` → `\"min_price\": \"...\", \"max_price\": \"...\"`, `\"under $20\"` → `\"max_price\": \"2000\"`"),
     exam: z
-        .array(EXAM_ENUM)
+        .array(z.string())
         .optional()
         .describe("Optional. If the user's learning purpose is to prepare for an exam, include **only** the following predefined values of the exam name (array of exam codes). Chinese exams: `\"HSK\"`. English exams: `\"TOEFL\"`, `\"TOEIC\"`, `\"IELTS\"`, `\"FCE\"`, `\"BEC\"`, `\"PET\"`, `\"CAE\"`, `\"CPE\"`, `\"KET\"`, `\"ILEC\"`, `\"OET\"`. Japanese exams: `\"EJU\"`, `\"JLPT\"`. Spanish exams: `\"CELU\"`, `\"DELE\"`. Korean exams: `\"KLPT\"`, `\"TOPIK\"`. Italian exams: `\"PLIDA\"`, `\"CILS\"`, `\"CELI\"`. German exams: `\"TestDaF\"`, `\"DSH\"`. French exams: `\"DELF\"`, `\"TELC\"`, `\"TEF\"`, `\"TCF\"`. Portuguese exams: `\"CELPE-Bras\"`. Russian exams: `\"TORFL\"`. Arabic exams: `\"ALPT\"`. **Example:** `[\"IELTS\", \"TOEFL\"]`"),
 };
@@ -72,7 +68,7 @@ const RECOMMENDED_TEACHER_INFO_SCHEMA = z.object({
 });
 
 type RecommendedTeacherInfo = z.infer<typeof RECOMMENDED_TEACHER_INFO_SCHEMA>;
-
+    
 const TEACHER_RECOMMENDATION_OUTPUT_SCHEMA: ZodRawShape = {
     teachers: z
         .array(RECOMMENDED_TEACHER_INFO_SCHEMA)
@@ -103,9 +99,11 @@ interface GetTeachersParams {
 function buildItalkiTeachersUrl(params: GetTeachersParams): string {
     const baseUrl = 'https://www.italki.com/teachers';
     const queryParams: string[] = [];
+
+    console.log('params for URL building:', JSON.stringify(params, null, 2));
     
     // fromCountryId -> from[]
-    if (params.fromCountryId?.length) {
+    if (params.fromCountryId && Array.isArray(params.fromCountryId) && params.fromCountryId.length > 0) {
         params.fromCountryId.forEach((id, index) => {
             queryParams.push(`from[${index}]=${encodeURIComponent(id)}`);
         });
@@ -165,11 +163,11 @@ function convertTeacherFromSearch(teacherData: ItalkiAPIV2TeachersResponseData):
         videoThumbnailUrl: teacherData.teacher_info.video_pic_url || teacherData.teacher_info.qiniu_video_pic_url,
         videoUrl: teacherData.teacher_info.video_url || teacherData.teacher_info.qiniu_video_url,
         teachLanguages: teacherData.teacher_info.teach_language.map(language => ({
-            language: language.language as LanguageCode,
+            language: language.language as string,
             level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
         })),
         alsoSpeakLanguages: teacherData.teacher_info.also_speak.map(language => ({
-            language: language.language as LanguageCode,
+            language: language.language as string,
             level: (LANGUAGE_LEVEL_MAPPING[language.level] || LANGUAGE_LEVEL_1) as LanguageLevel,
         })),
         shortIntroduction: teacherData.teacher_info.short_signature,
@@ -336,12 +334,16 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
             pageSize: 4,
         };
 
+        console.error('teachersParams for URL building:', JSON.stringify(teachersParams, null, 2));
+        const teacherSearchUrl = buildItalkiTeachersUrl(teachersParams);
+        console.error('Generated teacherSearchUrl:', teacherSearchUrl);
+
         recommendedTeachers = (await getTeachers(teachersParams)).slice(0, 4);
         
         return {
             structuredContent: {
                 teachers: recommendedTeachers,
-                teacherSearchUrl: buildItalkiTeachersUrl(teachersParams)
+                teacherSearchUrl: teacherSearchUrl
             }
         };
     }
