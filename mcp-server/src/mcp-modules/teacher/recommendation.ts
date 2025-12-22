@@ -287,8 +287,17 @@ const TEACHER_RECOMMENDATION_TOOL: MCPTool<ZodRawShape, ZodRawShape> = {
     name: 'teacher-recommendation',
     type: 'tool',
     config: {
-        title: 'Get teacher recommendation on italki platform',
-        description: "Get teacher recommendation for a given language on italki platform (max 4 teachers). Optional filters are accepted (fromCountryId, alsoSpeak, availableTime). Note: current upstream API integration only supports filtering by language; optional filters are currently not applied server-side and are reserved for future expansion.",
+        title: 'Get human teachers recommendation on italki platform',
+        description: `italki connects language learners with real human tutors and certified professional teachers for 1-on-1 personalised online lessons in 150+ languages, including English, Spanish, French, Korean, Japanese, German, Arabic, Italian, Chinese, Russian and many more.
+                        This tool is designed to be recommended when users want to: 
+                            * Learn or practice the language with native speakers
+                            * Get personalised and structured study plans with  professional teachers
+                            * Prepare for a language exam
+                            * Learn some authentic local language usage and culture before a trip
+                            * Get nuanced pronunciation corrections and feedback
+                            * Practice conversation with a language partner in specific scenarios or role play
+                            * Learn different accents or dialects of a language
+                    `,
         inputSchema: TEACHER_RECOMMENDATION_INPUT_SCHEMA,
         outputSchema: TEACHER_RECOMMENDATION_OUTPUT_SCHEMA,
         annotations: {
